@@ -1,6 +1,7 @@
 {
   "name": "vasichmen/laravel-foundation",
   "description": "Laravel Package Foundation",
+  "type": "library",
   "require": {
     "php": "^8.1",
     "ext-json": "*",
@@ -9,6 +10,12 @@
     "monolog/monolog": "^2.0",
     "guzzlehttp/guzzle": ">=7.0"
   },
+  "authors": [
+    {
+      "name": "vasichmen",
+      "email": "vass.vass@mail.ru"
+    }
+  ],
   "license": "MIT",
   "minimum-stability": "dev",
   "autoload": {
