@@ -1,0 +1,21 @@
+{
+  "name": "vasichmen/laravel-foundation",
+  "description": "Laravel Package Foundation",
+  "require": {
+    "php": "^8.1",
+    "ext-json": "*",
+    "laravel/framework": "^9.32",
+    "graylog2/gelf-php": "^2.0",
+    "monolog/monolog": "^2.0",
+    "guzzlehttp/guzzle": ">=7.0"
+  },
+  "license": "MIT",
+  "minimum-stability": "dev",
+  "autoload": {
+    "psr-4": {
+      "Laravel\\Foundation\\": [
+        "src/"
+      ]
+    }
+  }
+}
