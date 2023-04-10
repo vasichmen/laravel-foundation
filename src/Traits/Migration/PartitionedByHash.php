@@ -1,7 +1,7 @@
 <?php
 
 
-namespace Laravel\Foundation\Traits;
+namespace Laravel\Foundation\Traits\Migration;
 
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;

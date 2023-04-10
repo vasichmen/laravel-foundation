@@ -1,7 +1,7 @@
 <?php
 
 
-namespace Laravel\Foundation\Traits;
+namespace Laravel\Foundation\Traits\Enum;
 
 trait EnumValues
 {

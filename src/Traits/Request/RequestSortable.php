@@ -1,7 +1,7 @@
 <?php
 
 
-namespace Laravel\Foundation\Traits;
+namespace Laravel\Foundation\Traits\Request;
 
 use Laravel\Foundation\Abstracts\AbstractDto;
 
