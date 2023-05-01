@@ -6,19 +6,20 @@ namespace Laravel\Foundation\Abstracts;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Collection as SupportCollection;
+use Illuminate\Support\Str;
 use Laravel\Foundation\Exceptions\NeedTranslatableEnumException;
 
 abstract class AbstractResource extends JsonResource
 {
     /**Рендер связи модели. Если связь не загружена, то возвращает пустой массив. Если связь - массив, то ресурс будет применен к каждому элементу
-     * @param  string         $key                поле модели или название связи, откуда брать данные
-     * @param  string         $resourceNameSpace  класс ресурса для сущности
-     * @param  callable|null  $dataPreparer       подготовка поля перед применением ресурса (например, отсортировать)
+     * @param string $key поле модели или название связи, откуда брать данные
+     * @param string $resourceNamespace класс ресурса для сущности
+     * @param callable|null $dataPreparer подготовка поля перед применением ресурса (например, отсортировать)
      * @return array
      */
-    public function getRelation(string $key, string $resourceNameSpace, callable $dataPreparer = null): array
+    public function getRelation(string $key, string $resourceNamespace, callable $dataPreparer = null): array
     {
-        $isLoaded = (bool) $this?->relationLoaded($key);
+        $isLoaded = (bool)$this?->relationLoaded($key);
         if (!$isLoaded) {
             return [];
         }
@@ -28,19 +29,20 @@ abstract class AbstractResource extends JsonResource
             $resourceData = $dataPreparer($resourceData);
         }
 
+        $resourceKey = Str::snake($key);
         return [
-            $key => match (true) {
+            $resourceKey => match (true) {
                 $resourceData instanceof Collection,
                     $resourceData instanceof SupportCollection,
                     is_array($resourceData) && !$this->isAssociative($resourceData)
-                => $resourceNameSpace::collection($resourceData),
-                default => new $resourceNameSpace($this->{$key})
+                => $resourceNamespace::collection($resourceData),
+                default => new $resourceNamespace($this->{$key})
             },
         ];
     }
 
     /**Рендер enum. Рендерится в объект с кодом и названием. Название берется из метода trans enum. Если К этому enum не прикреплен трейт EnumTranslatable, то вместо имени будет null;
-     * @param  string  $key
+     * @param string $key
      * @return array|array[]|null[]
      * @throws NeedTranslatableEnumException
      */
@@ -69,9 +71,22 @@ abstract class AbstractResource extends JsonResource
     }
 
 
+    /**Рендер даты в одном формате
+     * @param string $field
+     * @return array<string=>Carbon>
+     */
+    public function getDate(string $field): array
+    {
+        $date = $this->{$field};
+        if (empty($date)) {
+            return [];
+        }
+        return [$field => \Illuminate\Support\Carbon::parse($date)];
+    }
+
     private function isAssociative(array $arr): bool
     {
-        return (bool) count(array_filter(array_keys($arr), "is_string")) == count($arr);
+        return (bool)count(array_filter(array_keys($arr), "is_string")) == count($arr);
     }
 
     public function getAttribute(string $name): array

@@ -5,7 +5,7 @@ namespace Laravel\Foundation\Traits\Cache;
 
 use BadMethodCallException;
 use DateTime;
-use Laravel\Foundation\Exceptions\InvalidTagException;
+use Laravel\Foundation\Exceptions\InvalidCacheTagException;
 
 trait QueryCacheModule
 {
@@ -176,7 +176,7 @@ trait QueryCacheModule
      * Get the cache object with tags assigned, if applicable.
      *
      * @return \Illuminate\Cache\CacheManager
-     * @throws InvalidTagException
+     * @throws InvalidCacheTagException
      */
     public function getCache()
     {
@@ -186,7 +186,7 @@ trait QueryCacheModule
 
         foreach ($tags as $tag) {
             if (!is_string($tag)) {
-                throw  new InvalidTagException('Тег должен быть строкой - ' . $tag);
+                throw  new InvalidCacheTagException('Тег должен быть строкой - ' . $tag);
             }
         }
 

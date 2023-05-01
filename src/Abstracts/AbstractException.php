@@ -33,6 +33,12 @@ abstract class AbstractException extends \Exception
         return $this->code;
     }
 
+    public function setHttpCode(int $code): static
+    {
+        $this->code = $code;
+        return $this;
+    }
+
     public function getExceptionName(): string
     {
         return static::EXCEPTION_NAME;

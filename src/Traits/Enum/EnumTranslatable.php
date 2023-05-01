@@ -3,6 +3,7 @@
 
 namespace Laravel\Foundation\Traits\Enum;
 
+/** @deprecated  */
 trait EnumTranslatable
 {
     public function trans(array $args = []): string

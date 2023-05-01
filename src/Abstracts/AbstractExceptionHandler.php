@@ -5,6 +5,7 @@ namespace Laravel\Foundation\Abstracts;
 
 use Illuminate\Foundation\Exceptions\Handler;
 use Laravel\Foundation\Traits\Logger;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 use Throwable;
 
 abstract class AbstractExceptionHandler extends Handler
@@ -63,6 +64,11 @@ abstract class AbstractExceptionHandler extends Handler
         ];
         $apiException = new class($errorBag) extends AbstractApiException {
         };
+
+        if($e instanceof HttpException){
+            $apiException->setHttpCode($e->getStatusCode());
+        }
+
         return parent::render($request, $apiException);
     }
 }

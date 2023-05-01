@@ -3,6 +3,7 @@
 
 namespace Laravel\Foundation\Traits\Enum;
 
+/** @deprecated  */
 trait EnumValues
 {
     /**

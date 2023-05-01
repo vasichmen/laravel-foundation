@@ -3,6 +3,8 @@
 
 namespace Laravel\Foundation\Abstracts;
 
+use Carbon\Carbon;
+use Carbon\CarbonInterface;
 use Illuminate\Support\Str;
 use Laravel\Foundation\Exceptions\DTOPropertyNotExists;
 use ReflectionException;
@@ -17,8 +19,8 @@ abstract class AbstractDto
     }
 
     /**Парсит входной массив, по умолчанию кладет значения в свойства текущего объекта (названия ключей массива преобразуются в camelCase)
-     * @param  array  $data               массив параметров из запроса
-     * @param  bool   $throwIfNoProperty  если true, то при отсутствии нужного свойства будет сгенерировано исключение
+     * @param array $data массив параметров из запроса
+     * @param bool $throwIfNoProperty если true, то при отсутствии нужного свойства будет сгенерировано исключение
      * @return void
      * @throws DTOPropertyNotExists
      */
@@ -33,7 +35,14 @@ abstract class AbstractDto
             }
 
             if ($propertyExists) {
-                $this->{$propertyName} = $value;
+                $reflectionProperty = new ReflectionProperty(static::class, $propertyName);
+                $propertyClass = $reflectionProperty->getType()->getName();
+                $this->{$propertyName} = match (true) {
+                    is_subclass_of($propertyClass, \UnitEnum::class) => $propertyClass::from($value),
+                    is_subclass_of($propertyClass, CarbonInterface::class) => Carbon::parse($value),
+                    default => $value,
+                };
+
             }
         }
     }

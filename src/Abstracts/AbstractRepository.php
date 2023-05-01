@@ -154,8 +154,11 @@ abstract class AbstractRepository
             ->first();
     }
 
-    public function create(array $params): AbstractModel
+    public function create(array|AbstractDto $params): AbstractModel
     {
+        if ($params instanceof AbstractDto) {
+            $params = $params->toArray();
+        }
         return $this->model->newQuery()->create($params);
     }
 
@@ -164,9 +167,18 @@ abstract class AbstractRepository
         return $this->model->newQuery()->insert($params);
     }
 
-    public function update(string|AbstractModel $model, array $params): bool|AbstractModel
+    /**Обновление модели
+     * @param string|AbstractModel $model Если передана строка, то для нее будет вызван метод getModel
+     * @param array|AbstractDto $params Если передан AbstractDto, то вызовется AbstractDto::toArray()
+     * @return bool|AbstractModel false, если не удалось обновить или найти модель
+     * @throws \ReflectionException
+     */
+    public function update(string|AbstractModel $model, array|AbstractDto $params): bool|AbstractModel
     {
         $model = $this->getModel($model);
+        if ($params instanceof AbstractDto) {
+            $params = $params->toArray();
+        }
 
         if (!empty($model)) {
             $model->fill($params);
