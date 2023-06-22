@@ -5,6 +5,7 @@ namespace Laravel\Foundation\Abstracts;
 
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection as SupportCollection;
 use Illuminate\Support\Str;
 use Laravel\Foundation\Exceptions\NeedTranslatableEnumException;
@@ -77,11 +78,15 @@ abstract class AbstractResource extends JsonResource
      */
     public function getDate(string $field): array
     {
-        $date = $this->{$field};
-        if (empty($date)) {
+        if (!in_array($field, $this->getFillable())) {
             return [];
         }
-        return [$field => \Illuminate\Support\Carbon::parse($date)];
+
+        $date = $this->{$field};
+        if (is_null($date)) {
+            return [$field => null];
+        }
+        return [$field => Carbon::parse($date)];
     }
 
     private function isAssociative(array $arr): bool
