@@ -154,7 +154,7 @@ $this->makePartitionedTable('materials', 100, function (Blueprint $table) {
 Реквест определяет правила валидации и (при необходимости) сообщения об ошибках, наследуется
 от [AbstractRequest](src%2FAbstracts%2FAbstractRequest.php).
 DTO определяет структуру данных для прозрачности передачи данных внутри приложения, наследуется
-от [AbstractDto](src%2FAbstracts%2FAbstractDto.php).
+от [AbstractDto](src%2FAbstracts%2FAbstractDto.php). Для стандартизации форматов запросов есть [GetListRequestDTO](src%2FDTO%2FGetListRequestDTO.php), в нем определены основные поля, используемые при получении списков с фильтрацией и пагинацией. 
 
 Для подключения валидации надо добавить `\Laravel\Foundation\ServiceProviders\RequestServiceProvider::class` в конфиг `app.php`
 
@@ -300,6 +300,10 @@ UserRepository::query()
     ->limit(10) //10 элементов на странице
     ->offset(1) //первая страница
     ->paginate() //Возвращается LengthAwarePaginator
+
+UserRepository::query()
+    ->fromGetListDto($someGetListDto) //установка настроек из заданного объекта GetListRequestDTO
+    ->paginate();
 ```
 
 ### Ресурс
