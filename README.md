@@ -241,17 +241,6 @@ class User extends \Laravel\Foundation\Abstracts\AbstractModel
 }
 ```
 
-### Репозиторий
-
-Все репозитории наследуются от [AbstractRepository](src%2FAbstracts%2FAbstractRepository.php).
-Основной метод реквеста - getList. В него передаются параметры фильтрации, кэширования, сортировки и пагинации.
-Если передан параметр paginate:true, то возвращается LengthAwarePaginator, в остальных случаях возвращается коллекция
-моделей.
-
-Помимо этого в репозитории определены основные CRUD операции с моделями, принимающие как id записи, так и модель.
-
-Подробное описание в phpDoc
-
 #### Использование кэширования при работе с моделями
 
 Подключить провайдер `\Laravel\Foundation\ServiceProviders\CacheServiceProvider::class` в конфиг app.php
@@ -260,15 +249,12 @@ class User extends \Laravel\Foundation\Abstracts\AbstractModel
 
 ```php
 
-class SomeRepository {
-....
 
-$result = $this->model
+$result = $abstractModel
             ->cacheFor(config('cache.ttl'))
             ->where('feed_id',$feedId)
             ->get();
 
-...
 ```
 
 Установка кастомных тегов кэша. Такой кэш автоматически сбрасываться не будет, для сброса надо переопределять метод
@@ -276,21 +262,45 @@ invalidateCustomCache в модели
 
 ```php
 
-class SomeRepository extends \Laravel\Foundation\Abstracts\AbstractRepository {
-....
 
-$result = $this->model
+$result = $abstractModel
             ->cacheFor(config('cache.ttl'))
             ->cacheTags([self::getCacheTag('feeds', $feedId)]) //устанавливаем кастомные теги
             ->cacheKey(self::getCacheKey($feedId)) //задаем ключ кэша 
             ->where('feed_id',$feedId)
             ->get();
-...
 ```
 
 Для корректного хранения кэша в одной БД redis от нескольких микросервисов надо задать переменную SERVICE_NAME в .env
 
 Методы getCacheTag, getCacheKey подключаются из трейта [CacheKeysTrait](src%2FTraits%2FCache%2FCacheKeysTrait.php)
+
+### Репозиторий
+
+Все репозитории наследуются от [AbstractRepository](src%2FAbstracts%2FAbstractRepository.php). Для каждой модели создается репозиторий и регистрируется через провайдер.
+Для создания select запросов используется [RepositoryBuilder](src%2FRepository%2FRepositoryBuilder.php). В нем определены основные методы фильтрации, получения связей и выборки результатов.
+Можно вызывать из RepositoryBuilder напрямую методы [Builder](src%2FCache%2FBuilder.php), они проксируются на внутренний объект построителя запросов.
+Для остальных операций есть статические методы в `AbstractRepository`: create, update, updateOrCreate, delete, getModel.
+
+Примеры:
+
+```php
+UserRepository::query()
+    ->filters(['code'=>'code_1','count'=>1])
+    ->query('query string',['column1','column2']) //поисковый запрос по определенным столбцам 
+    ->cacheFor(config('cache.ttl')) //длительность хранения кэша
+    ->orderBy(['name'=>'asc','id'=>'desc'])
+    ->with(['roles']) //загрузка отношений
+    ->withCount(['subscribers']) //получение числа связанных объектов
+    ->get(); //полная выборка в виде Collection
+    
+ UserRepository::query()
+    ->filters(['code'=>'code_1', 'count'=>1]) //применение фильтров
+    ->orderBy(['name'=>'asc',]) //сортировка по полю name по возрастанию
+    ->limit(10) //10 элементов на странице
+    ->offset(1) //первая страница
+    ->paginate() //Возвращается LengthAwarePaginator
+```
 
 ### Ресурс
 
