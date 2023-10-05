@@ -6,10 +6,11 @@ namespace Laravel\Foundation\Abstracts;
 use Illuminate\Contracts\Container\Container;
 use Illuminate\Contracts\Validation\Factory as ValidationFactory;
 use Illuminate\Contracts\Validation\ValidatesWhenResolved;
-use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Factory;
 use Illuminate\Validation\ValidatesWhenResolvedTrait;
 use Laravel\Foundation\Exceptions\ValidationException;
+use Laravel\Foundation\Validation\Validator;
 
 abstract class AbstractRequest extends Request implements ValidatesWhenResolved
 {
@@ -52,36 +53,19 @@ abstract class AbstractRequest extends Request implements ValidatesWhenResolved
         return $this->prepareValidatedData($this->getValidatorInstance()->validated());
     }
 
-    protected function prepareValidatedData(array $data){
-
+    protected function prepareValidatedData(array $data)
+    {
         //если задан класс DTO, то возвращаем объект DTO, если нет, то массив
-        if (!empty($this->dtoClassName) && is_subclass_of($this->dtoClassName, AbstractDto::class)) {
-            return new $this->dtoClassName($data);
+        $dtoClass = $this->getDtoClassName();
+        if (!empty($dtoClass) && is_subclass_of($dtoClass, AbstractDto::class)) {
+            return new $dtoClass($data);
         }
         return $data;
     }
 
-    /**
-     * Set the container implementation.
-     *
-     * @param  \Illuminate\Contracts\Container\Container  $container
-     * @return $this
-     */
-    public function setContainer(Container $container): static
+    protected function getDtoClassName(): ?string
     {
-        $this->container = $container;
-
-        return $this;
-    }
-
-    /**
-     * @param  string  $param
-     * @param  null    $default
-     * @return string|object|null
-     */
-    public function getRouteParameter(string $param, $default = null): string|null|object
-    {
-        return $this->route()->parameter($param, $default);
+        return $this->dtoClassName;
     }
 
     /**
@@ -99,8 +83,7 @@ abstract class AbstractRequest extends Request implements ValidatesWhenResolved
 
         if (method_exists($this, 'validator')) {
             $validator = $this->container->call([$this, 'validator'], compact('factory'));
-        }
-        else {
+        } else {
             $validator = $this->createDefaultValidator($factory);
         }
 
@@ -116,15 +99,17 @@ abstract class AbstractRequest extends Request implements ValidatesWhenResolved
     /**
      * Create the default validator instance.
      *
-     * @param  \Illuminate\Contracts\Validation\Factory  $factory
+     * @param \Illuminate\Contracts\Validation\Factory $factory
      * @return \Illuminate\Contracts\Validation\Validator
      */
-    protected function createDefaultValidator(ValidationFactory $factory): Validator
+    protected function createDefaultValidator(Factory $factory): Validator
     {
-        return $factory->make(
+        $validator = new Validator($factory->getTranslator(),
             $this->validationData(), $this->container->call([$this, 'rules']),
             $this->messages(), $this->attributes()
         );
+        $validator->setPresenceVerifier($factory->getPresenceVerifier());
+        return $validator;
     }
 
     /**
@@ -160,7 +145,7 @@ abstract class AbstractRequest extends Request implements ValidatesWhenResolved
     /**
      * Set the Validator instance.
      *
-     * @param  \Illuminate\Contracts\Validation\Validator  $validator
+     * @param \Illuminate\Contracts\Validation\Validator $validator
      * @return $this
      */
     public function setValidator(Validator $validator): static
@@ -171,9 +156,56 @@ abstract class AbstractRequest extends Request implements ValidatesWhenResolved
     }
 
     /**
+     * Set the container implementation.
+     *
+     * @param \Illuminate\Contracts\Container\Container $container
+     * @return $this
+     */
+    public function setContainer(Container $container): static
+    {
+        $this->container = $container;
+
+        return $this;
+    }
+
+    /**
+     * @param string $param
+     * @param null $default
+     * @return string|object|null
+     */
+    public function getRouteParameter(string $param, $default = null): string|null|object
+    {
+        return $this->route()->parameter($param, $default);
+    }
+
+    public function sorted(bool $required = true): array
+    {
+        $isRequired = $this->isRequiredOrNullable($required);
+        return [
+            'sort' => "$isRequired|array",
+            'sort.*' => "$isRequired|string|in:asc,desc",
+        ];
+    }
+
+    private function isRequiredOrNullable(bool $required): string
+    {
+        return $required ? 'required' : 'nullable';
+    }
+
+    public function paginated(bool $required = true): array
+    {
+        $isRequired = $this->isRequiredOrNullable($required);
+
+        return [
+            'page' => "$isRequired|integer",
+            'per_page' => "$isRequired|integer",
+        ];
+    }
+
+    /**
      * Handle a failed validation attempt.
      *
-     * @param  \Illuminate\Contracts\Validation\Validator  $validator
+     * @param \Illuminate\Contracts\Validation\Validator $validator
      * @return void
      *
      * @throws ValidationException
@@ -195,31 +227,5 @@ abstract class AbstractRequest extends Request implements ValidatesWhenResolved
         }
 
         return true;
-    }
-
-    public function sorted(bool $required = true): array
-    {
-        $isRequired = $this->isRequiredOrNullable($required);
-        return [
-            'sort' => "$isRequired|array",
-            'sort.*' => "$isRequired|array",
-            'sort.*.sort' => "$isRequired|string",
-            'sort.*.by' => "$isRequired|string|in:asc,desc",
-        ];
-    }
-
-    public function paginated(bool $required = true): array
-    {
-        $isRequired = $this->isRequiredOrNullable($required);
-
-        return [
-            'page' => "$isRequired|integer",
-            'per_page' => "$isRequired|integer",
-        ];
-    }
-
-    private function isRequiredOrNullable(bool $required): string
-    {
-        return $required ? 'required' : 'nullable';
     }
 }

@@ -218,7 +218,7 @@ class RepositoryBuilder
         return $this->toQuery()->take(1)->get()->first();
     }
 
-    /**Возвращает объект \IPPU\Foundation\Cache\Builder с примененными правилами
+    /**Возвращает объект \Laravel\Foundation\Cache\Builder с примененными правилами
      * @return Builder
      */
     public function toQuery(): Builder
