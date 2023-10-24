@@ -38,7 +38,9 @@ abstract class AbstractDto
                 $reflectionProperty = new ReflectionProperty(static::class, $propertyName);
                 $propertyClass = $reflectionProperty->getType()->getName();
                 $this->{$propertyName} = match (true) {
-                    is_subclass_of($propertyClass, \UnitEnum::class) => $propertyClass::from($value),
+                    is_subclass_of($propertyClass, \UnitEnum::class) => $value instanceof \UnitEnum
+                        ? $value
+                        : $propertyClass::from($value),
                     is_subclass_of($propertyClass, CarbonInterface::class) => Carbon::parse($value),
                     default => $value,
                 };
