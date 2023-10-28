@@ -69,14 +69,28 @@ class RepositoryBuilder
     public function filters(array $filters): static
     {
         foreach ($filters as $field => $value) {
-            if (is_array($value) || ($value instanceof Collection)) {
-                $this->builder->whereIn($field, $value);
-            } else {
-                if (is_null($value)) {
+            switch (true) {
+                case is_array($value) || ($value instanceof Collection):
+                    $this->builder->whereIn($field, $value);
+                    break;
+                case is_null($value):
                     $this->builder->whereNull($field);
-                } else {
+                    break;
+                case Str::endsWith($field, '@gte'):
+                    $this->builder->where(Str::before($field, '@'), '>=', $value);
+                    break;
+                case Str::endsWith($field, '@lte'):
+                    $this->builder->where(Str::before($field, '@'), '<=', $value);
+                    break;
+                case Str::endsWith($field, '@gt'):
+                    $this->builder->where(Str::before($field, '@'), '>', $value);
+                    break;
+                case Str::endsWith($field, '@lt'):
+                    $this->builder->where(Str::before($field, '@'), '<', $value);
+                    break;
+                default:
                     $this->builder->where($field, $value);
-                }
+                    break;
             }
         }
 
