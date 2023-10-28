@@ -4,6 +4,7 @@ namespace Laravel\Foundation\Repository;
 
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 use Laravel\Foundation\Abstracts\AbstractModel;
 use Laravel\Foundation\Abstracts\AbstractRepository;
 use Laravel\Foundation\Cache\Builder;
