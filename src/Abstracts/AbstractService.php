@@ -7,7 +7,7 @@ use Illuminate\Support\Collection;
 
 abstract class AbstractService
 {
-    protected function makeCollection(mixed $items)
+    protected static function makeCollection(mixed $items)
     {
         if ($items instanceof Collection) {
             return $items;
