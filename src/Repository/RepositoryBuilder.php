@@ -2,6 +2,7 @@
 
 namespace Laravel\Foundation\Repository;
 
+use Closure;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
@@ -11,8 +12,22 @@ use Laravel\Foundation\Cache\Builder;
 use Laravel\Foundation\DTO\GetListRequestDTO;
 
 
+
 /**
- *
+ * @method RepositoryBuilder whereHas($relation, Closure $callback = null, $operator = '>=', $count = 1)
+ * @method RepositoryBuilder withCount($relations)
+ * @method RepositoryBuilder where($column, $operator = null, $value = null, $boolean = 'and')
+ * @method RepositoryBuilder when(mixed $condition, callable $closure)
+ * @method RepositoryBuilder select(array $select)
+ * @method RepositoryBuilder with(array $relations)
+ * @method RepositoryBuilder whereIn($column, $values, $boolean = 'and', $not = false)
+ * @method RepositoryBuilder whereNotIn($column, $values, $boolean = 'and')
+ * @method RepositoryBuilder whereExists(Closure $callback, $boolean = 'and', $not = false)
+ * @method RepositoryBuilder whereNotNull($columns, $boolean = 'and')
+ * @method RepositoryBuilder orWhere($column, $operator = null, $value = null)
+ * @method RepositoryBuilder whereRaw($sql, $bindings = [], $boolean = 'and')
+ * @method Builder newQuery()
+ * @method void dd()
  */
 class RepositoryBuilder
 {
@@ -31,36 +46,6 @@ class RepositoryBuilder
     {
         $this->repository = app($this->repositoryNamespace);
         $this->builder = $this->repository->newQuery();
-    }
-
-    /**Выбор определенных полей
-     * @param array $select
-     * @return $this
-     */
-    public function select(array $select): static
-    {
-        $this->builder->select($select);
-        return $this;
-    }
-
-    /**Загружаемые связи
-     * @param array $relations
-     * @return $this
-     */
-    public function with(array $relations): static
-    {
-        $this->builder->with($relations);
-        return $this;
-    }
-
-    /**Загружаемые связи
-     * @param array $relations
-     * @return $this
-     */
-    public function withCount(array $relations): static
-    {
-        $this->builder->withCount($relations);
-        return $this;
     }
 
     /**массив с фильтрами
@@ -193,12 +178,6 @@ class RepositoryBuilder
             ->query($dto->q, $queryableFields);
     }
 
-    public function when(mixed $condition, callable $closure): static
-    {
-        $this->builder->when($condition, $closure);
-        return $this;
-    }
-
     /**добавляет условие where с заданным замыканием
      * @param callable $closure
      * @return $this
@@ -268,7 +247,9 @@ class RepositoryBuilder
             return $this->{$name}(...$arguments);
         }
 
-        return $this->toQuery()->{$name}(...$arguments);
+        $this->builder->{$name}(...$arguments);
+
+        return $this;
     }
 
 }
