@@ -5,6 +5,7 @@ namespace Laravel\Foundation\Abstracts;
 
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use Laravel\Foundation\Exceptions\DTOPropertyNotExists;
 use ReflectionException;
@@ -42,6 +43,7 @@ abstract class AbstractDto
                         ? $value
                         : $propertyClass::from($value),
                     is_subclass_of($propertyClass, CarbonInterface::class) => Carbon::parse($value),
+                    $propertyClass === Collection::class => collect($value),
                     default => $value,
                 };
 
