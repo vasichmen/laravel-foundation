@@ -212,6 +212,14 @@ class RepositoryBuilder
         return $this->toQuery()->take(1)->get()->first();
     }
 
+    /**проверка существования хотя бы одной модели
+     * @return AbstractModel|null
+     */
+    public function exists(): ?AbstractModel
+    {
+        return $this->builder->exists();
+    }
+
     /**Возвращает объект \Laravel\Foundation\Cache\Builder с примененными правилами
      * @return Builder
      */
