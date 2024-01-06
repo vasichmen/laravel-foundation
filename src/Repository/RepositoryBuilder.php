@@ -213,9 +213,9 @@ class RepositoryBuilder
     }
 
     /**проверка существования хотя бы одной модели
-     * @return AbstractModel|null
+     * @return bool
      */
-    public function exists(): ?AbstractModel
+    public function exists(): bool
     {
         return $this->builder->exists();
     }
