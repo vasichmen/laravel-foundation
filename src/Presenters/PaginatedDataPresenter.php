@@ -24,7 +24,7 @@ class PaginatedDataPresenter extends AbstractPresenter
         return [
             'error' => false,
             'content' => [
-                'data' => $resource->getCollection()->transform($this->mapPaginationBody()),
+                'data' => $this->getDataCollection($resource),
                 'meta' => [
                     'current_page' => $resource->currentPage(),
                     'per_page' => $resource->perPage(),
@@ -34,6 +34,11 @@ class PaginatedDataPresenter extends AbstractPresenter
                 'filter' => $this->aggregationsToArray(),
             ],
         ];
+    }
+
+    protected function getDataCollection($resource): Collection
+    {
+        return $resource->getCollection()->transform($this->mapPaginationBody());
     }
 
     /**

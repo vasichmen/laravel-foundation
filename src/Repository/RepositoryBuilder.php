@@ -217,7 +217,7 @@ class RepositoryBuilder
      */
     public function exists(): bool
     {
-        return $this->builder->exists();
+        return $this->toQuery()->exists();
     }
 
     /**Возвращает объект \Laravel\Foundation\Cache\Builder с примененными правилами
