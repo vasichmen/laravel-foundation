@@ -8,7 +8,9 @@ use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection as SupportCollection;
 use Illuminate\Support\Str;
-use Laravel\Foundation\Exceptions\NeedTranslatableEnumException;
+use Laravel\Foundation\Exceptions\NeedExtendedEnumException;
+use Laravel\Foundation\Traits\Enum\BaseEnumTrait;
+use UnitEnum;
 
 abstract class AbstractResource extends JsonResource
 {
@@ -20,11 +22,12 @@ abstract class AbstractResource extends JsonResource
      */
     public function getRelation(string $key, string $resourceNamespace, callable $dataPreparer = null): array
     {
-        $isLoaded = (bool)$this?->relationLoaded($key);
-        if (!$isLoaded) {
+        /** @var AbstractResource $resourceNamespace */
+
+        if (!$this?->isRelation($key) || !$this?->relationLoaded($key)) {
             return [];
         }
-        $resourceData = $this->{$key};
+        $resourceData = $this->getRelationValue($key);
 
         if ($dataPreparer) {
             $resourceData = $dataPreparer($resourceData);
@@ -37,15 +40,20 @@ abstract class AbstractResource extends JsonResource
                     $resourceData instanceof SupportCollection,
                     is_array($resourceData) && !$this->isAssociative($resourceData)
                 => $resourceNamespace::collection($resourceData),
-                default => new $resourceNamespace($this->{$key})
+                default => new $resourceNamespace($resourceData)
             },
         ];
+    }
+
+    private function isAssociative(array $arr): bool
+    {
+        return (bool)count(array_filter(array_keys($arr), "is_string")) == count($arr);
     }
 
     /**Рендер enum. Рендерится в объект с кодом и названием. Название берется из метода trans enum. Если К этому enum не прикреплен трейт EnumTranslatable, то вместо имени будет null;
      * @param string $key
      * @return array|array[]|null[]
-     * @throws NeedTranslatableEnumException
+     * @throws NeedExtendedEnumException
      */
     public function getEnum(string $key): array
     {
@@ -55,20 +63,63 @@ abstract class AbstractResource extends JsonResource
         return $this->renderEnum($key, $this->{$key});
     }
 
-    public function renderEnum(string $key, $enum): array
+    /**Отрисовка enum в объект с названием и id в заданный ключ. Если первым параметром передать Enum, то вернется только массив описания Enum без ключа
+     * @param string|UnitEnum $key
+     * @param UnitEnum|null $enum
+     * @return array|array[]|null[]
+     * @throws NeedExtendedEnumException
+     */
+    public function renderEnum(string|UnitEnum $key, ?UnitEnum $enum = null): array
     {
+        /** @var BaseEnumTrait $enum */
+
+        $withoutKey = $key instanceof UnitEnum;
+        if ($withoutKey) {
+            $enum = $key;
+        }
+
         if (is_null($enum)) {
             return [$key => null];
         }
+
         if (!method_exists($enum, 'trans')) {
-            throw new NeedTranslatableEnumException('Объект должен быть расширен трейтом EnumTranslatable: ' . get_class($enum));
+            throw new NeedExtendedEnumException('Объект ' . get_class($enum) . ' должен быть расширен трейтом ' . BaseEnumTrait::class);
         }
+
+        $result = $enum->render();
+        if ($withoutKey) {
+            return $result;
+        }
+
         return [
-            $key => [
-                'id' => $enum->value,
-                'name' => $enum->trans(),
-            ],
+            $key => $result,
         ];
+    }
+
+    /**Рендер массива кодов Enum
+     * @param string $field
+     * @param string $enumClass
+     * @return array|array[]
+     * @throws NeedExtendedEnumException
+     */
+    public function getEnumArray(string $field, string $enumClass): array
+    {
+        /** @var UnitEnum $enumClass */
+
+        if (!in_array($field, $this->getFillable())) {
+            return [];
+        }
+
+        $value = $this->{$field};
+        if (empty($value)) {
+            return [$field => $value];
+        }
+        $result = [];
+        foreach ($value as $id) {
+            $result[] = $this->renderEnum($enumClass::from($id));
+        }
+
+        return [$field => $result];
     }
 
 
@@ -78,20 +129,32 @@ abstract class AbstractResource extends JsonResource
      */
     public function getDate(string $field): array
     {
-        if (!in_array($field, $this->getFillable())) {
+        /** @var AbstractModel $this */
+        if (!array_key_exists($field, $this->getAttributes())) {
             return [];
         }
 
+        /** @var Carbon $date */
         $date = $this->{$field};
         if (is_null($date)) {
             return [$field => null];
         }
-        return [$field => Carbon::parse($date)];
+        $date = $date->setTimezone('UTC');
+        //2023-09-22T16:50:59.000000Z
+        return [$field => $date->format('Y-m-d\TH:i:s.u\Z')];
     }
 
-    private function isAssociative(array $arr): bool
+    /**Рендер дат создания и обновления
+     * @return array{created_at:Carbon,updated_at:Carbon}
+     */
+    public function renderTimestamps(): array
     {
-        return (bool)count(array_filter(array_keys($arr), "is_string")) == count($arr);
+        /** @var AbstractModel $model */
+        $model = $this->resource;
+        return [
+            $model::CREATED_AT => $model->{$model::CREATED_AT},
+            $model::UPDATED_AT => $model->{$model::UPDATED_AT},
+        ];
     }
 
     public function getAttribute(string $name): array
@@ -102,7 +165,8 @@ abstract class AbstractResource extends JsonResource
     }
 
     /**Объединяет сущности в связи через запятую
-     * @param $entity string название связи
+     * @param string $entity название связи
+     * @param string $fieldName название поля, откуда брать название сущности в связи
      * @return array
      */
     protected function getEntityListString(string $entity, string $fieldName = 'name'): array
