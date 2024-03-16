@@ -76,7 +76,7 @@ abstract class AbstractRepository
      * @param array $values
      * @return AbstractModel
      */
-    public function updateOrCreate(array $attributes, array $values): AbstractModel
+    public static function updateOrCreate(array $attributes, array $values): AbstractModel
     {
         return static::newQuery()->updateOrCreate($attributes, $values);
     }

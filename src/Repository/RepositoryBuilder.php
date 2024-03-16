@@ -220,6 +220,15 @@ class RepositoryBuilder
         return $this->toQuery()->exists();
     }
 
+    /**Количество элементов в текущем запросе
+     * @return int
+     */
+    public function count(): int
+    {
+        return $this->toQuery()->count();
+    }
+
+
     /**Возвращает объект \Laravel\Foundation\Cache\Builder с примененными правилами
      * @return Builder
      */
