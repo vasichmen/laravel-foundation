@@ -5,12 +5,12 @@ namespace Laravel\Foundation\Repository;
 use Closure;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Laravel\Foundation\Abstracts\AbstractModel;
 use Laravel\Foundation\Abstracts\AbstractRepository;
 use Laravel\Foundation\Cache\Builder;
 use Laravel\Foundation\DTO\GetListRequestDTO;
-
 
 
 /**
@@ -73,6 +73,14 @@ class RepositoryBuilder
                     break;
                 case Str::endsWith($field, '@lt'):
                     $this->builder->where(Str::before($field, '@'), '<', $value);
+                    break;
+                case Str::endsWith($field, '@?'):
+                    if (DB::getDriverName() == 'pgsql') {
+                        $this->builder->where(Str::before($field, '@'), '?', $value);
+                    }
+                    if (DB::getDriverName() == 'mysql') {
+                        $this->builder->whereRaw("JSON_CONTAINS(" . Str::before($field, '@') . ",'$value','$')");
+                    }
                     break;
                 default:
                     $this->builder->where($field, $value);
