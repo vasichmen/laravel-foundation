@@ -10,6 +10,8 @@ class GetListRequestDTO extends AbstractDto
     public int $perPage;
     public array $sort;
     public array $filters = [];
+    public array $queries = [];
+    public array $select = ['*'];
 
     public string $q = '';
 }
