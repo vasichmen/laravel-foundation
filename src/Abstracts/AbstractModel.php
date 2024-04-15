@@ -4,6 +4,7 @@
 namespace Laravel\Foundation\Abstracts;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Str;
 use Laravel\Foundation\Traits\Cache\HasCustomCacheTrait;
@@ -124,6 +125,26 @@ abstract class AbstractModel extends Model
     public function getKeyType()
     {
         return 'string';
+    }
+
+    /**Метод возвращает названия отношений Eloquent. Определение идет по типу возвращаемого значения, если тип наследован от \Illuminate\Database\Eloquent\Relations\Relation, то метод считается отношением.<br>
+     * Если у метода модели не определен возвращаемый тип, то этого отношения не будет в списке
+     * @param string $relationClass Класс связи, который надо найти
+     * @return array<string>
+     */
+    public static function getDefinedRelations(string $relationClass = Relation::class): array
+    {
+        $refClass = new \ReflectionClass(static::class);
+        $methods = $refClass->getMethods();
+        $result = [];
+        foreach ($methods as $method) {
+            $returnType = $method->getReturnType()?->getName();
+
+            if ($returnType === $relationClass || is_subclass_of($returnType, $relationClass)) {
+                $result[] = $method->getName();
+            }
+        }
+        return $result;
     }
 
     public function invalidateAllCache()
