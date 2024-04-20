@@ -58,7 +58,7 @@ abstract class AbstractRequest extends Request implements ValidatesWhenResolved
     {
         //на фронте в объекте FormData пустой массив выглядит как массив с null внутри. Такое валидация не пропускает, поэтому фильтруем массивы
         return array_map(function ($item) {
-            if (is_array($item)) {
+            if (is_array($item) && array_is_list($item)) {
                 return array_filter($item, static fn($v) => !is_null($v));
             }
             return $item;
