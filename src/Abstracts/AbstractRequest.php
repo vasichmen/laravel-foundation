@@ -53,6 +53,18 @@ abstract class AbstractRequest extends Request implements ValidatesWhenResolved
         return $this->prepareValidatedData($this->getValidatorInstance()->validated());
     }
 
+
+    public function all($keys = null)
+    {
+        //на фронте в объекте FormData пустой массив выглядит как массив с null внутри. Такое валидация не пропускает, поэтому фильтруем массивы
+        return array_map(function ($item) {
+            if (is_array($item)) {
+                return array_filter($item, static fn($v) => !is_null($v));
+            }
+            return $item;
+        }, parent::all($keys));
+    }
+
     protected function prepareValidatedData(array $data)
     {
         //если задан класс DTO, то возвращаем объект DTO, если нет, то массив
