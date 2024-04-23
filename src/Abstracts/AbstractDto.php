@@ -36,8 +36,6 @@ abstract class AbstractDto
             }
 
             if ($propertyExists) {
-                $reflectionProperty = new ReflectionProperty(static::class, $propertyName);
-                $propertyClass = $reflectionProperty->getType()->getName();
 
                 //если пришел null, то не проверяем тип свойства
                 if (is_null($value)) {
@@ -45,6 +43,8 @@ abstract class AbstractDto
                     continue;
                 }
 
+                $reflectionProperty = new ReflectionProperty(static::class, $propertyName);
+                $propertyClass = $reflectionProperty->getType()->getName();
                 $this->{$propertyName} = match (true) {
                     is_subclass_of($propertyClass, \UnitEnum::class) => $value instanceof \UnitEnum
                         ? $value
