@@ -38,10 +38,17 @@ abstract class AbstractDto
             if ($propertyExists) {
                 $reflectionProperty = new ReflectionProperty(static::class, $propertyName);
                 $propertyClass = $reflectionProperty->getType()->getName();
+
+                //если пришел null, то не проверяем тип свойства
+                if (is_null($value)) {
+                    $this->{$propertyName} = $value;
+                    continue;
+                }
+
                 $this->{$propertyName} = match (true) {
                     is_subclass_of($propertyClass, \UnitEnum::class) => $value instanceof \UnitEnum
                         ? $value
-                        : (is_null($value) ? null : $propertyClass::from($value)),
+                        : $propertyClass::from($value),
                     is_subclass_of($propertyClass, CarbonInterface::class) => Carbon::parse($value),
                     $propertyClass === Collection::class => collect($value),
                     default => $value,
