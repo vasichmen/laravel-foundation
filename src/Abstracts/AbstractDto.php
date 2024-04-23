@@ -41,7 +41,7 @@ abstract class AbstractDto
                 $this->{$propertyName} = match (true) {
                     is_subclass_of($propertyClass, \UnitEnum::class) => $value instanceof \UnitEnum
                         ? $value
-                        : $propertyClass::from($value),
+                        : (is_null($value) ? null : $propertyClass::from($value)),
                     is_subclass_of($propertyClass, CarbonInterface::class) => Carbon::parse($value),
                     $propertyClass === Collection::class => collect($value),
                     default => $value,
