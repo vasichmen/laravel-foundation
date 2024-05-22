@@ -25,6 +25,8 @@ use Laravel\Foundation\DTO\GetListRequestDTO;
  * @method RepositoryBuilder whereNotNull($columns, $boolean = 'and')
  * @method RepositoryBuilder orWhere($column, $operator = null, $value = null)
  * @method RepositoryBuilder whereRaw($sql, $bindings = [], $boolean = 'and')
+ * @method RepositoryBuilder whereBetween($column, iterable $values, $boolean = 'and', $not = false)
+ * @method RepositoryBuilder orWhereBetween($column, iterable $values)
  * @method RepositoryBuilder fromRaw($expression, $bindings = [])
  * @method RepositoryBuilder selectRaw($expression, array $bindings = [])
  * @method Builder newQuery()
@@ -150,6 +152,7 @@ class RepositoryBuilder
      */
     private function setRelationFilter(Builder $builder, string $field, mixed $value): void
     {
+        $field = Str::camel($field);
         $builder->whereHas(Str::before($field, '.'), function (Builder $query) use ($value, $field) {
             $this->setFilter($query, Str::after($field, '.'), $value);
         });
@@ -161,40 +164,30 @@ class RepositoryBuilder
      */
     public function queries(array $queries): static
     {
-
         foreach ($queries as $field => $query) {
-            $path = explode('.', $field);
-
-            //todo переписать на рекурсию
-
-            //если это поле модели
-            if (count($path) === 1) {
-                $this->injectQueryPart($field, $query, $this->builder);
+            if (empty($query)) {
                 continue;
             }
 
-            //если это связь в модели
-            if (count($path) == 2) {
-                $this->builder->whereHas(Str::camel($path[0]), function (Builder $builder) use ($query, $path) {
-                    $this->injectQueryPart($path[1], $query, $builder);
-                });
-            }
-
-            //если это связь другой связи
-            if (count($path) == 3) {
-                $this->builder->whereHas(Str::camel($path[0]), function (Builder $builder) use ($query, $path) {
-                    $builder->whereHas(Str::camel($path[1]),
-                        function (Builder $builder) use ($query, $path) {
-                            $this->injectQueryPart($path[2], $query, $builder);
-                        });
-                });
-            }
+            $this->setNestedQueriesFilter($this->builder, $field, $query);
         }
 
         return $this;
     }
 
-    private function injectQueryPart(string $field, string $query, Builder $builder): void
+    private function setNestedQueriesFilter(Builder $builder, string $field, mixed $query): void
+    {
+        //если это свзь, то делаем подзапрос
+        if (Str::contains($field, '.')) {
+            $builder->whereHas(Str::camel(Str::before($field, '.')), function (Builder $builder) use ($query, $field) {
+                $this->setNestedQueriesFilter($builder, Str::after($field, '.'), $query);
+            });
+            return;
+        }
+        $this->injectQueryPart($builder, $field, $query);
+    }
+
+    private function injectQueryPart(Builder $builder, string $field, string $query): void
     {
         $fields = explode('|', $field);
 
@@ -224,15 +217,41 @@ class RepositoryBuilder
      */
     public function query(string $query, array $queryableFields): static
     {
-        if (!empty($query) && !empty($queryableFields)) {
-            $this->builder->where(function (Builder $builder) use ($query, $queryableFields) {
-                foreach ($queryableFields as $queryableField) {
-                    $builder->orWhere($queryableField, 'ilike', "%$query%");
-                }
-            });
+        if (empty($query) || empty($queryableFields)) {
+            return $this;
         }
 
+        $this->builder->where(function (Builder $builder) use ($query, $queryableFields) {
+            foreach ($queryableFields as $queryableField) {
+                //если поле это связь, то делаем вложенный запрос
+                if (Str::contains($queryableField, '.')) {
+                    $builder->orWhereHas(Str::camel(Str::before($queryableField, '.')),
+                        function (Builder $builder) use ($query, $queryableField) {
+                            $this->setNestedQueryFilter($builder, Str::after($queryableField, '.'), $query);
+                        });
+                } //если простое поле, то добавляем условие
+                else {
+                    $builder->orWhere($queryableField, 'ilike', "%$query%");
+                }
+            }
+        });
+
+
         return $this;
+    }
+
+    private function setNestedQueryFilter(Builder $builder, string $field, string $query): void
+    {
+        //если это поиск по вложенной связи, то добавляем подзапрос
+        if (Str::contains($field, '.')) {
+            $builder->whereHas(Str::before($field, '.'), function (Builder $builder) use ($query, $field) {
+                $this->setNestedQueryFilter($builder, Str::after($field, '.'), $query);
+            });
+            return;
+        }
+
+        //если это уже поле модели, то применяем фильтр
+        $builder->where($field, 'ilike', "%$query%");
     }
 
     /**Число записей на странице
