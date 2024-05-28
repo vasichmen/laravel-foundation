@@ -50,6 +50,7 @@ abstract class AbstractDto
                         ? $value
                         : $propertyClass::from($value),
                     is_subclass_of($propertyClass, CarbonInterface::class) => Carbon::parse($value),
+                    is_subclass_of($propertyClass, AbstractDto::class) => new $propertyClass($value),
                     $propertyClass === Collection::class => collect($value),
                     default => $value,
                 };
