@@ -71,9 +71,13 @@ abstract class AbstractDto
         $publicProperties = $reflectionObject->getProperties(ReflectionProperty::IS_PUBLIC);
         foreach ($publicProperties as $publicProperty) {
             $reflectionProperty = new ReflectionProperty(static::class, $publicProperty->name);
+            $propertyClass = $reflectionProperty->getType()->getName();
             if ($reflectionProperty->isInitialized($this)) {
                 $key = Str::snake($publicProperty->name);
-                $result[$key] = $this->{$publicProperty->name};
+                $result[$key] = match (true) {
+                    is_subclass_of($propertyClass, AbstractDto::class) => $this->{$publicProperty->name}?->toArray(),
+                    default => $this->{$publicProperty->name}
+                };
             }
         }
         return $result;
