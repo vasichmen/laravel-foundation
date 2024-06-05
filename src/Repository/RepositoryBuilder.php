@@ -108,6 +108,10 @@ class RepositoryBuilder
             case Str::contains($field, '.'):
                 $this->setRelationFilter($builder, $field, $value);
                 break;
+            case Str::endsWith($field, '@?'):
+                $value = "['" . collect($value)->join("','") . "']";
+                $this->builder->whereRaw(Str::before($field, '@?') . "::jsonb ??| array$value");
+                break;
             case is_array($value) || ($value instanceof Collection):
                 $builder->whereIn($field, $value);
                 break;
@@ -125,9 +129,6 @@ class RepositoryBuilder
                 break;
             case Str::endsWith($field, '@lt'):
                 $builder->where(Str::before($field, '@'), '<', $value);
-                break;
-            case Str::endsWith($field, '@?'):
-                $builder->where(Str::before($field, '@'), '?', $value);
                 break;
             case Str::endsWith($field, '@!'):
                 $builder->whereNot(Str::before($field, '@'), $value);
@@ -152,8 +153,7 @@ class RepositoryBuilder
      */
     private function setRelationFilter(Builder $builder, string $field, mixed $value): void
     {
-        $field = Str::camel($field);
-        $builder->whereHas(Str::before($field, '.'), function (Builder $query) use ($value, $field) {
+        $builder->whereHas(Str::before(Str::camel($field), '.'), function (Builder $query) use ($value, $field) {
             $this->setFilter($query, Str::after($field, '.'), $value);
         });
     }
