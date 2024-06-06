@@ -10,6 +10,7 @@ use Laravel\Foundation\Abstracts\AbstractModel;
 use Laravel\Foundation\Abstracts\AbstractRepository;
 use Laravel\Foundation\Cache\Builder;
 use Laravel\Foundation\DTO\GetListRequestDTO;
+use Laravel\Foundation\Traits\Enum\BaseEnumTrait;
 
 
 /**
@@ -193,7 +194,22 @@ class RepositoryBuilder
 
         $builder->where(function (Builder $builder) use ($query, $fields) {
             foreach ($fields as $fieldName) {
-                $builder->orWhere($fieldName, 'ilike', "%$query%");
+                $casts = $builder->getModel()->getCasts();
+                switch (true) {
+                    //если это поле enum, то фильтруем все значения этого енума по переданной строке и потом передаем в запрос
+                    case array_key_exists($fieldName, $casts):
+                        /** @var \UnitEnum|BaseEnumTrait $enumClass */
+                        $enumClass = $casts[$fieldName];
+
+                        $ids = $enumClass::list()
+                            ->filter(static fn($i) => Str::contains($i['name'], $query, true))
+                            ->pluck('id');
+                        $builder->orWhereIn($fieldName, $ids->toArray());
+                        break;
+                    default:
+                        $builder->orWhere($fieldName, 'ilike', "%$query%");
+                        break;
+                }
             }
         });
     }

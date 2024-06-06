@@ -68,16 +68,23 @@ abstract class AbstractDto
                     case is_subclass_of($propertyClass, AbstractDto::class):
                         $this->{$propertyName} = new $propertyClass($value);
                         break;
-                    //если поле коллекция, то приводим к коллекции
-                    case $propertyClass === Collection::class:
-                        $this->{$propertyName} = collect($value);
-                        break;
-                    //если поле - вложенный массив DTO, то парсим каждый элемент массива как DTO
+                    //если поле - вложенный массив или коллекция DTO, то парсим каждый элемент массива как DTO
                     case array_key_exists($propertyName, $this->getDtoArrays()):
                         $dtoClass = $this->getDtoArrays()[$propertyName];
-                        $this->{$propertyName} = collect($value)
-                            ->map(static fn($item) => new $dtoClass($item))
-                            ->toArray();
+                        $array = collect($value)
+                            ->map(static fn($item) => new $dtoClass($item));
+
+                        if ($propertyClass !== Collection::class) {
+                            $this->{$propertyName} = $array->toArray();
+                        } else {
+                            $this->{$propertyName} = $array;
+                        }
+                        break;
+                    //если поле коллекция, то приводим к коллекции
+                    case $propertyClass === Collection::class:
+                        if (array_key_exists($propertyName, $this->getDtoArrays())) {
+                            $this->{$propertyName} = collect($value);
+                        }
                         break;
                     default:
                         $this->{$propertyName} = $value;
