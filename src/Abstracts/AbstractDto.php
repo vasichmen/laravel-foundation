@@ -82,9 +82,7 @@ abstract class AbstractDto
                         break;
                     //если поле коллекция, то приводим к коллекции
                     case $propertyClass === Collection::class:
-                        if (array_key_exists($propertyName, $this->getDtoArrays())) {
-                            $this->{$propertyName} = collect($value);
-                        }
+                        $this->{$propertyName} = collect($value);
                         break;
                     default:
                         $this->{$propertyName} = $value;
