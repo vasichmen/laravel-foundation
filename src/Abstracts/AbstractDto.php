@@ -53,42 +53,54 @@ abstract class AbstractDto
                     continue;
                 }
 
+                //получаем тип поля
                 $reflectionProperty = new ReflectionProperty(static::class, $propertyName);
-                $propertyClass = $reflectionProperty->getType()->getName();
+                $type = $reflectionProperty->getType();
                 switch (true) {
-                    //если поле енум, то его надо распарсить
-                    case is_subclass_of($propertyClass, \UnitEnum::class):
-                        $this->{$propertyName} = $value instanceof \UnitEnum ? $value : $propertyClass::from($value);
-                        break;
-                    //если поле дата, то парсим объект Carbon
-                    case is_subclass_of($propertyClass, CarbonInterface::class):
-                        $this->{$propertyName} = Carbon::parse($value);
-                        break;
-                    //Если поле DTO, то парсим вложенный объект DTO
-                    case is_subclass_of($propertyClass, AbstractDto::class):
-                        $this->{$propertyName} = new $propertyClass($value);
-                        break;
-                    //если поле - вложенный массив или коллекция DTO, то парсим каждый элемент массива как DTO
-                    case array_key_exists($propertyName, $this->getDtoArrays()):
-                        $dtoClass = $this->getDtoArrays()[$propertyName];
-                        $array = collect($value)
-                            ->map(static fn($item) => new $dtoClass($item));
+                    //одиночный тип поля
+                    case $type instanceof \ReflectionNamedType:
+                        $propertyClass = $type->getName();
+                        switch (true) {
+                            //если поле енум, то его надо распарсить
+                            case is_subclass_of($propertyClass, \UnitEnum::class):
+                                $this->{$propertyName} = $value instanceof \UnitEnum ? $value : $propertyClass::from($value);
+                                break;
+                            //если поле дата, то парсим объект Carbon
+                            case is_subclass_of($propertyClass, CarbonInterface::class):
+                                $this->{$propertyName} = Carbon::parse($value);
+                                break;
+                            //Если поле DTO, то парсим вложенный объект DTO
+                            case is_subclass_of($propertyClass, AbstractDto::class):
+                                $this->{$propertyName} = new $propertyClass($value);
+                                break;
+                            //если поле - вложенный массив или коллекция DTO, то парсим каждый элемент массива как DTO
+                            case array_key_exists($propertyName, $this->getDtoArrays()):
+                                $dtoClass = $this->getDtoArrays()[$propertyName];
+                                $array = collect($value)
+                                    ->map(static fn($item) => new $dtoClass($item));
 
-                        if ($propertyClass !== Collection::class) {
-                            $this->{$propertyName} = $array->toArray();
-                        } else {
-                            $this->{$propertyName} = $array;
+                                if ($propertyClass !== Collection::class) {
+                                    $this->{$propertyName} = $array->toArray();
+                                } else {
+                                    $this->{$propertyName} = $array;
+                                }
+                                break;
+                            //если поле коллекция, то приводим к коллекции
+                            case $propertyClass === Collection::class:
+                                $this->{$propertyName} = collect($value);
+                                break;
+                            default:
+                                $this->{$propertyName} = $value;
+                                break;
                         }
                         break;
-                    //если поле коллекция, то приводим к коллекции
-                    case $propertyClass === Collection::class:
-                        $this->{$propertyName} = collect($value);
-                        break;
-                    default:
+                    //union - тип поля
+                    case $type instanceof \ReflectionUnionType:
                         $this->{$propertyName} = $value;
                         break;
+                    default:
+                        throw new \Exception('Этот тип не реализован');
                 }
-
             }
         }
     }
@@ -104,25 +116,40 @@ abstract class AbstractDto
         $reflectionObject = new ReflectionObject($this);
         $publicProperties = $reflectionObject->getProperties(ReflectionProperty::IS_PUBLIC);
         foreach ($publicProperties as $publicProperty) {
+
+            //получаем тип поля
             $reflectionProperty = new ReflectionProperty(static::class, $publicProperty->name);
-            $propertyClass = $reflectionProperty->getType()->getName();
+            $type = $reflectionProperty->getType();
+
             if ($reflectionProperty->isInitialized($this)) {
                 $key = Str::snake($publicProperty->name);
                 switch (true) {
-                    //если поле DTO, то преобразуем его в массив
-                    case is_subclass_of($propertyClass, AbstractDto::class):
-                        $result[$key] = $this->{$publicProperty->name}?->toArray();
-                        break;
-                    //если это вложенный массив DTO, то приводим каждый объект к массиву
-                    case array_key_exists($publicProperty->name, $this->getDtoArrays()):
-                        $result[$key] = [];
-                        foreach ($this->{$publicProperty->name} as $item) {
-                            $result[$key][] = $item->toArray();
+                    //одиночный тип поля
+                    case $type instanceof \ReflectionNamedType:
+                        $propertyClass = $reflectionProperty->getType()->getName();
+                        switch (true) {
+                            //если поле DTO, то преобразуем его в массив
+                            case is_subclass_of($propertyClass, AbstractDto::class):
+                                $result[$key] = $this->{$publicProperty->name}?->toArray();
+                                break;
+                            //если это вложенный массив DTO, то приводим каждый объект к массиву
+                            case array_key_exists($publicProperty->name, $this->getDtoArrays()):
+                                $result[$key] = [];
+                                foreach ($this->{$publicProperty->name} as $item) {
+                                    $result[$key][] = $item->toArray();
+                                }
+                                break;
+                            default:
+                                $result[$key] = $this->{$publicProperty->name};
+                                break;
                         }
                         break;
-                    default:
+                    //union - тип поля
+                    case $type instanceof \ReflectionUnionType:
                         $result[$key] = $this->{$publicProperty->name};
                         break;
+                    default:
+                        throw new \Exception('Этот тип не реализован');
                 }
             }
         }
