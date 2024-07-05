@@ -150,11 +150,12 @@ abstract class AbstractRepository
      * @param array|Collection $additionalFilters дополнительные ключи, которые надо оставить в фильтрах
      * @return array
      */
-    public function getSupportingFilters(array|Collection $filters, array|Collection $additionalFilters = []): array
+    public static function getSupportingFilters(array|Collection $filters, array|Collection $additionalFilters = []): array
     {
         $filters = collect($filters);
         $additionalFilters = collect($additionalFilters);
-        $modelFilters = $this->getModelFilters($this->model, $filters->keys());
+        $model = static::newQuery()->getModel();
+        $modelFilters = static::getModelFilters($model, $filters->keys());
 
         //объединяем с фильтрами-исключениями
         $filterableFields = $additionalFilters->merge($modelFilters);
@@ -170,7 +171,7 @@ abstract class AbstractRepository
      * @param Collection|array $filterCodes
      * @return Collection
      */
-    private function getModelFilters(AbstractModel $model, Collection|array $filterCodes): Collection
+    private static function getModelFilters(AbstractModel $model, Collection|array $filterCodes): Collection
     {
         $fillable = $model->getFillable();
         $relations = $model::getDefinedRelations();
@@ -200,7 +201,7 @@ abstract class AbstractRepository
                     /** @var AbstractModel $relatedModel */
                     $relatedModel = $relation->getRelated();
                     $relatedFieldName = Str::after($filterCode, '.');
-                    $availableRelatedFilters = $this->getModelFilters($relatedModel, [$relatedFieldName]);
+                    $availableRelatedFilters = static::getModelFilters($relatedModel, [$relatedFieldName]);
                     if (count($availableRelatedFilters) > 0) {
                         $result[] = $relationFilterName . '.' . $relatedFieldName;
                     }
