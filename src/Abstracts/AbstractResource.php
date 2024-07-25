@@ -36,6 +36,7 @@ abstract class AbstractResource extends JsonResource
         $resourceKey = Str::snake($key);
         return [
             $resourceKey => match (true) {
+                is_null($resourceData) => null,
                 $resourceData instanceof Collection,
                     $resourceData instanceof SupportCollection,
                     is_array($resourceData) && !$this->isAssociative($resourceData)
