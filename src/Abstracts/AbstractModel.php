@@ -28,6 +28,7 @@ abstract class AbstractModel extends Model
     use  QueryCacheableTrait, HasCustomCacheTrait;
 
     protected static bool $fillsCode = false;
+    protected static bool $fillsUuid = true;
 
     public static function boot()
     {
@@ -49,13 +50,13 @@ abstract class AbstractModel extends Model
     protected static function bootUuid()
     {
         static::creating(function ($model) {
-            if (!$model->getKey()) {
+            if (!$model->getKey() && static::$fillsUuid) {
                 $model->{$model->getKeyName()} = (string) Str::orderedUuid();
             }
         });
 
         static::saving(function ($model) {
-            if (!$model->getKey()) {
+            if (!$model->getKey() && static::$fillsUuid) {
                 $model->{$model->getKeyName()} = (string) Str::orderedUuid();
             }
         });
