@@ -27,7 +27,14 @@ abstract class AbstractModel extends Model
 {
     use  QueryCacheableTrait, HasCustomCacheTrait;
 
+    /**флаг, показывающий, требуется ли автоматическая генерация поля code на основе поля name
+     * @var bool
+     */
     protected static bool $fillsCode = false;
+    
+    /**флаг, показывающий, требуется ли автоматическая генерация uuid поля id (или другого настроенного первичного ключа)
+     * @var bool
+     */
     protected static bool $fillsUuid = true;
 
     public static function boot()

@@ -134,6 +134,10 @@ abstract class AbstractDto
                                 break;
                             //если это вложенный массив DTO, то приводим каждый объект к массиву
                             case array_key_exists($publicProperty->name, $this->getDtoArrays()):
+                                if (is_null($this->{$publicProperty->name})) {
+                                    $result[$key] = null;
+                                    break;
+                                }
                                 $result[$key] = [];
                                 foreach ($this->{$publicProperty->name} as $item) {
                                     $result[$key][] = $item->toArray();
