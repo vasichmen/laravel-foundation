@@ -30,12 +30,13 @@ trait BaseEnumTrait
         return array_column(self::cases(), 'value');
     }
 
-    /**
+    /**Возвращает ключ по коду enum. Проверяет наличие ключа в файлах перевода
      * @param string|null $code Если null, то возвращает id всего блока для этого Enum
-     * @return string
+     * @param bool $throwIfNotExists
+     * @return ?string
      * @throws EnumTransNotFoundException
      */
-    private static function getTransNameId(?string $code): string
+    private static function getTransNameId(?string $code, bool $throwIfNotExists = true): ?string
     {
         //для обратной совместимости поддерживаются оба формата lang файла
         $key1 = self::getNamespace() . 'enums.names.' . static::class . (empty($code) ? '' : '.' . $code);
@@ -48,7 +49,10 @@ trait BaseEnumTrait
             return $key2;
         }
 
-        throw new EnumTransNotFoundException('Для класса ' . static::class . " не найден перевод названия $key1 или $key2");
+        if ($throwIfNotExists) {
+            throw new EnumTransNotFoundException('Для класса ' . static::class . " не найден перевод названия $key1 или $key2");
+        }
+        return null;
     }
 
     /**
@@ -119,7 +123,7 @@ trait BaseEnumTrait
      */
     public static function tryFromTrans(?string $translation): ?self
     {
-        foreach (trans(self::getTransNameId(null)) as $key => $trans) {
+        foreach (trans(self::getTransNameId(null, false)) as $key => $trans) {
             if ($trans === $translation) {
                 return self::from($key);
             }
