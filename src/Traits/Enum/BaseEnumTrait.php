@@ -9,6 +9,9 @@ use UnitEnum;
 
 /**
  * @method cases():array
+ * @method from(string $key):array
+ * @property string $value
+ * @property string $name
  */
 trait BaseEnumTrait
 {
@@ -30,17 +33,17 @@ trait BaseEnumTrait
         return array_column(self::cases(), 'value');
     }
 
-    /**Возвращает ключ по коду enum. Проверяет наличие ключа в файлах перевода
+    /**
      * @param string|null $code Если null, то возвращает id всего блока для этого Enum
      * @param bool $throwIfNotExists
-     * @return ?string
+     * @return string|null
      * @throws EnumTransNotFoundException
      */
     private static function getTransNameId(?string $code, bool $throwIfNotExists = true): ?string
     {
         //для обратной совместимости поддерживаются оба формата lang файла
-        $key1 = self::getNamespace() . 'enums.names.' . static::class . (empty($code) ? '' : '.' . $code);
-        $key2 = self::getNamespace() . 'enums.' . static::class . '.' . (empty($code) ? '' : '.' . $code);
+        $key1 = self::getNamespace() . 'enums.names.' . static::class . (empty($code) ? '' : ('.' . $code));
+        $key2 = self::getNamespace() . 'enums.' . static::class . (empty($code) ? '' : ('.' . $code));
         if (trans()->has($key1)) {
             return $key1;
         }
@@ -51,8 +54,9 @@ trait BaseEnumTrait
 
         if ($throwIfNotExists) {
             throw new EnumTransNotFoundException('Для класса ' . static::class . " не найден перевод названия $key1 или $key2");
+        } else {
+            return null;
         }
-        return null;
     }
 
     /**
@@ -104,7 +108,7 @@ trait BaseEnumTrait
 
     /**Получение объекта перечисления по его переводу
      * @param string $translation
-     * @return UnitEnum
+     * @return UnitEnum|BaseEnumTrait
      * @throws \Exception
      */
     public static function fromTrans(string $translation): self
@@ -141,3 +145,4 @@ trait BaseEnumTrait
     }
 
 }
+
