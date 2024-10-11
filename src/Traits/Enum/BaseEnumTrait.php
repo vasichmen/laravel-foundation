@@ -31,25 +31,62 @@ trait BaseEnumTrait
     }
 
     /**
+     * @param string|null $code Если null, то возвращает id всего блока для этого Enum
+     * @return string
      * @throws EnumTransNotFoundException
      */
-    private static function getTransId(string $code): string
+    private static function getTransNameId(?string $code): string
     {
-        $key = self::getNamespace() . 'enums.' . static::class . '.' . $code;
+        //для обратной совместимости поддерживаются оба формата lang файла
+        $key1 = self::getNamespace() . 'enums.names.' . static::class . (empty($code) ? '' : '.' . $code);
+        $key2 = self::getNamespace() . 'enums.' . static::class . '.' . (empty($code) ? '' : '.' . $code);
+        if (trans()->has($key1)) {
+            return $key1;
+        }
+
+        if (trans()->has($key2)) {
+            return $key2;
+        }
+
+        throw new EnumTransNotFoundException('Для класса ' . static::class . " не найден перевод названия $key1 или $key2");
+    }
+
+    /**
+     * @param string $code код элемента
+     * @return string|null
+     */
+    private static function getTransDescId(string $code): ?string
+    {
+        $key = self::getNamespace() . 'enums.descriptions.' . static::class . '.' . $code;
         if (trans()->has($key)) {
             return $key;
         }
-        throw new EnumTransNotFoundException('Для класса ' . static::class . ' не найден перевод ' . $key);
+
+        return null;
     }
 
-    /**Получить название enum из lang.enums.[class_name]
+    /**Получить название enum из lang.enums.names.[class_name] или lang.enums.[class_name]
      * @param array $args
      * @return string
      * @throws EnumTransNotFoundException
      */
     public function trans(array $args = []): string
     {
-        return trans(self::getTransId($this->value), $args);
+        return trans(self::getTransNameId($this->value), $args);
+    }
+
+    /**Получить описание enum из lang.enums.descriptions.[class_name]
+     * @param array $args
+     * @return string|null
+     * @throws EnumTransNotFoundException
+     */
+    public function desc(array $args = []): ?string
+    {
+        $key = self::getTransDescId($this->value);
+        if (empty($key)) {
+            return null;
+        }
+        return trans($key, $args);
     }
 
     public function render(): array
@@ -57,6 +94,7 @@ trait BaseEnumTrait
         return [
             'id' => $this->value,
             'name' => $this->trans(),
+            'description' => $this->desc(),
         ];
     }
 
@@ -75,12 +113,13 @@ trait BaseEnumTrait
     }
 
     /**Получение объекта перечисления по его переводу
-     * @param string $translation
-     * @return ?UnitEnum
+     * @param string|null $translation
+     * @return BaseEnumTrait|null
+     * @throws EnumTransNotFoundException
      */
-    public static function tryFromTrans(string $translation): ?self
+    public static function tryFromTrans(?string $translation): ?self
     {
-        foreach (trans(self::getNamespace() . 'enums.' . static::class) as $key => $trans) {
+        foreach (trans(self::getTransNameId(null)) as $key => $trans) {
             if ($trans === $translation) {
                 return self::from($key);
             }
