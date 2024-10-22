@@ -10,8 +10,6 @@ use UnitEnum;
 /**
  * @method cases():array
  * @method from(string $key):array
- * @property string $value
- * @property string $name
  */
 trait BaseEnumTrait
 {
