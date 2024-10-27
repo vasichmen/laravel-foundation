@@ -40,8 +40,8 @@ trait BaseEnumTrait
     private static function getTransNameId(?string $code, bool $throwIfNotExists = true): ?string
     {
         //для обратной совместимости поддерживаются оба формата lang файла
-        $key1 = self::getNamespace() . 'enums.names.' . static::class . (empty($code) ? '' : ('.' . $code));
-        $key2 = self::getNamespace() . 'enums.' . static::class . (empty($code) ? '' : ('.' . $code));
+        $key1 = self::getNamespace() . 'enums.names.' . static::class . (is_null($code) ? '' : ('.' . $code));
+        $key2 = self::getNamespace() . 'enums.' . static::class . (is_null($code) ? '' : ('.' . $code));
         if (trans()->has($key1)) {
             return $key1;
         }
