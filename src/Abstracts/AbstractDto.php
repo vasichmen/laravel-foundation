@@ -77,7 +77,7 @@ abstract class AbstractDto
                             case array_key_exists($propertyName, $this->getDtoArrays()):
                                 $dtoClass = $this->getDtoArrays()[$propertyName];
                                 $array = collect($value)
-                                    ->map(static fn($item) => new $dtoClass($item));
+                                    ->map(static fn($item) => $item instanceof $dtoClass ? $item : new $dtoClass($item));
 
                                 if ($propertyClass !== Collection::class) {
                                     $this->{$propertyName} = $array->toArray();
