@@ -11,6 +11,7 @@ use Laravel\Foundation\Exceptions\DTOPropertyNotExists;
 use ReflectionException;
 use ReflectionObject;
 use ReflectionProperty;
+use UnitEnum;
 
 abstract class AbstractDto
 {
@@ -62,8 +63,8 @@ abstract class AbstractDto
                         $propertyClass = $type->getName();
                         switch (true) {
                             //если поле енум, то его надо распарсить
-                            case is_subclass_of($propertyClass, \UnitEnum::class):
-                                $this->{$propertyName} = $value instanceof \UnitEnum ? $value : $propertyClass::from($value);
+                            case is_subclass_of($propertyClass, UnitEnum::class):
+                                $this->{$propertyName} = $value instanceof UnitEnum ? $value : $propertyClass::from($value);
                                 break;
                             //если поле дата, то парсим объект Carbon
                             case is_subclass_of($propertyClass, CarbonInterface::class):
@@ -131,6 +132,10 @@ abstract class AbstractDto
                             //если поле DTO, то преобразуем его в массив
                             case is_subclass_of($propertyClass, AbstractDto::class):
                                 $result[$key] = $this->{$publicProperty->name}?->toArray();
+                                break;
+                            //если поле Enum, то берем его value
+                            case is_subclass_of($propertyClass, UnitEnum::class):
+                                $result[$key] = $this->{$publicProperty->name}?->value;
                                 break;
                             //если это вложенный массив DTO, то приводим каждый объект к массиву
                             case array_key_exists($publicProperty->name, $this->getDtoArrays()):
