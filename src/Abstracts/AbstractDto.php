@@ -78,7 +78,7 @@ abstract class AbstractDto
                             case array_key_exists($propertyName, $this->getDtoArrays()):
                                 $dtoClass = $this->getDtoArrays()[$propertyName];
                                 $array = collect($value)
-                                    ->map(static fn($item) => $item instanceof $dtoClass ? $item : new $dtoClass($item));
+                                    ->mapWithKeys(static fn($item, $arKey) => [$arKey => $item instanceof $dtoClass ? $item : new $dtoClass($item)]);
 
                                 if ($propertyClass !== Collection::class) {
                                     $this->{$propertyName} = $array->toArray();
@@ -144,8 +144,8 @@ abstract class AbstractDto
                                     break;
                                 }
                                 $result[$key] = [];
-                                foreach ($this->{$publicProperty->name} as $item) {
-                                    $result[$key][] = $item->toArray();
+                                foreach ($this->{$publicProperty->name} as $arKey => $item) {
+                                    $result[$key][$arKey] = $item->toArray();
                                 }
                                 break;
                             default:
