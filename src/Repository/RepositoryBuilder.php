@@ -88,7 +88,7 @@ class RepositoryBuilder
      * @param array $filters
      * @return $this
      */
-    public function filters(array $filters,): static
+    public function filters(array $filters): static
     {
         foreach ($filters as $field => $value) {
             $this->setFilter($this->builder, $field, $value);
@@ -113,12 +113,6 @@ class RepositoryBuilder
                 $value = "['" . collect($value)->join("','") . "']";
                 $this->builder->whereRaw(Str::before($field, '@?') . "::jsonb ??| array$value");
                 break;
-            case is_array($value) || ($value instanceof Collection):
-                $builder->whereIn($field, $value);
-                break;
-            case is_null($value):
-                $builder->whereNull($field);
-                break;
             case Str::endsWith($field, '@gte'):
                 $builder->where(Str::before($field, '@'), '>=', $value);
                 break;
@@ -132,13 +126,28 @@ class RepositoryBuilder
                 $builder->where(Str::before($field, '@'), '<', $value);
                 break;
             case Str::endsWith($field, '@!'):
-                $builder->whereNot(Str::before($field, '@'), $value);
+                switch (true) {
+                    case is_array($value) || ($value instanceof Collection):
+                        $builder->whereNotIn(Str::before($field, '@'), $value);
+                        break;
+                    case is_null($value):
+                        $this->builder->whereNotNull(Str::before($field, '@'));
+                        break;
+                    default:
+                        $builder->whereNot(Str::before($field, '@'), $value);
+                }
                 break;
             case Str::endsWith($field, '@like'):
                 $builder->where(Str::before($field, '@'), 'like', "%$value%");
                 break;
             case Str::endsWith($field, '@ilike'):
                 $builder->where(Str::before($field, '@'), 'ilike', "%$value%");
+                break;
+            case is_array($value) || ($value instanceof Collection):
+                $builder->whereIn($field, $value);
+                break;
+            case is_null($value):
+                $builder->whereNull($field);
                 break;
             default:
                 $builder->where($field, $value);
