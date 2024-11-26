@@ -2,6 +2,7 @@
 
 namespace Laravel\Foundation\Abstracts;
 
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
@@ -192,20 +193,30 @@ abstract class AbstractRepository
             //если это составное поле, то проверяем, является это отношением или нет
             if (Str::contains($fieldName, '.')) {
                 $relationFilterName = Str::before($fieldName, '.');
-                $relationName = Str::camel($relationFilterName);
+                $relationName = Str::camel(Str::before($relationFilterName,
+                    '_pivot'));//если в строке нет "_pivot", то название отношения так и останется
 
                 //если такое отношение существует
                 if (in_array($relationName, $relations)) {
                     /** @var Relation $relation */
                     $relation = $model->{$relationName}();
-                    /** @var AbstractModel $relatedModel */
-                    $relatedModel = $relation->getRelated();
                     $relatedFieldName = Str::after($filterCode, '.');
-                    $availableRelatedFilters = static::getModelFilters($relatedModel, [$relatedFieldName]);
-                    if (count($availableRelatedFilters) > 0) {
-                        $result[] = $relationFilterName . '.' . $relatedFieldName;
+
+                    //если фильтр по pivot таблице, то проверяем связь
+                    if ($relation instanceof BelongsToMany && Str::endsWith($relationFilterName, '_pivot')) {
+                        $pivotClass = $relation->getPivotClass();
+                        $availablePivotFilters = static::getModelFilters(new $pivotClass(), [$relatedFieldName]);
+                        if (count($availablePivotFilters) > 0) {
+                            $result[] = $relationFilterName . '.' . $relatedFieldName;
+                        }
+                    } else {
+                        /** @var AbstractModel $relatedModel */
+                        $relatedModel = $relation->getRelated();
+                        $availableRelatedFilters = static::getModelFilters($relatedModel, [$relatedFieldName]);
+                        if (count($availableRelatedFilters) > 0) {
+                            $result[] = $relationFilterName . '.' . $relatedFieldName;
+                        }
                     }
-                    continue;
                 }
             }
         }
