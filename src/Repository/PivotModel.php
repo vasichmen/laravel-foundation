@@ -16,6 +16,11 @@ abstract class PivotModel extends AbstractModel
      */
     public $incrementing = false;
 
+    /**Disable uuids
+     * @var bool
+     */
+    protected static bool $fillsUuid = false;
+
     /**
      * The attributes that aren't mass assignable.
      *
