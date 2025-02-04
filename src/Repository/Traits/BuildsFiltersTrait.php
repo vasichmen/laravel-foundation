@@ -33,43 +33,57 @@ trait BuildsFiltersTrait
      */
     private function setFilter(Builder $builder, string $field, mixed $value, string $filterCode): void
     {
+        $dbField = Str::before($field, '@');
         switch (true) {
             case Str::contains($field, '.'):
                 $this->setRelationFilter($builder, $field, $value, $filterCode);
                 break;
+            //фильтр по полям внутри json объектов. внутри могут быть такие же операторы для полей, поэтому вызываем его раньше остальных
+            case Str::contains($field, '@#'):
+                $path = explode(',', Str::betweenFirst($field, '@#', '@'));
+                $jsonField = Str::before($field, '@#');
+                $jsonField = collect([$jsonField, ...$path])->join('->');
+
+                $fieldOperator = '';
+                if (Str::substrCount($field, '@') == 2) {
+                    $fieldOperator = '@' . Str::afterLast($field, '@');
+                }
+
+                $this->setFilter($builder, "$jsonField$fieldOperator", $value, $filterCode);
+                break;
+            //наличие ключа в json поле
             case Str::endsWith($field, '@?'):
-                $value = "['" . collect($value)->join("','") . "']";
-                $builder->whereRaw(Str::before($field, '@?') . "::jsonb ??| array$value");
+                $builder->whereJsonContains($dbField, $value);
                 break;
             case Str::endsWith($field, '@gte'):
-                $builder->where(Str::before($field, '@'), '>=', $value);
+                $builder->where($dbField, '>=', $value);
                 break;
             case Str::endsWith($field, '@lte'):
-                $builder->where(Str::before($field, '@'), '<=', $value);
+                $builder->where($dbField, '<=', $value);
                 break;
             case Str::endsWith($field, '@gt'):
-                $builder->where(Str::before($field, '@'), '>', $value);
+                $builder->where($dbField, '>', $value);
                 break;
             case Str::endsWith($field, '@lt'):
-                $builder->where(Str::before($field, '@'), '<', $value);
+                $builder->where($dbField, '<', $value);
                 break;
             case Str::endsWith($field, '@!'):
                 switch (true) {
                     case is_array($value) || ($value instanceof Collection):
-                        $builder->whereNotIn(Str::before($field, '@'), $value);
+                        $builder->whereNotIn($dbField, $value);
                         break;
                     case is_null($value):
-                        $builder->whereNotNull(Str::before($field, '@'));
+                        $builder->whereNotNull($dbField);
                         break;
                     default:
-                        $builder->whereNot(Str::before($field, '@'), $value);
+                        $builder->whereNot($dbField, $value);
                 }
                 break;
             case Str::endsWith($field, '@like'):
-                $builder->where(Str::before($field, '@'), 'like', "%$value%");
+                $builder->where($dbField, 'like', "%$value%");
                 break;
             case Str::endsWith($field, '@ilike'):
-                $builder->where(Str::before($field, '@'), 'ilike', "%$value%");
+                $builder->where($dbField, 'ilike', "%$value%");
                 break;
             case is_array($value) || ($value instanceof Collection):
                 $builder->whereIn($field, $value);
