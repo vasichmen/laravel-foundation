@@ -51,9 +51,18 @@ trait BuildsFiltersTrait
 
                 $this->setFilter($builder, "$jsonField$fieldOperator", $value, $filterCode);
                 break;
-            //наличие ключа в json поле
+            //наличие ключа в json поле. Если передать массив, то должны быть все ключи из массива
             case Str::endsWith($field, '@?'):
                 $builder->whereJsonContains($dbField, $value);
+                break;
+            //отсутствие ключа в json поле. Если передать массив, то должны отсутствовать все ключи из массива
+            case Str::endsWith($field, '@?!'):
+                $builder->whereJsonDoesntContain($dbField, $value);
+                break;
+            //наличие ключа в json поле. Если передать массив, то должен быть хотя бы один ключ из массива
+            case Str::endsWith($field, '@?|'):
+                $value = "['" . collect($value)->join("','") . "']";
+                $builder->whereRaw(Str::before($field, '@?') . "::jsonb ??| array$value");
                 break;
             case Str::endsWith($field, '@gte'):
                 $builder->where($dbField, '>=', $value);
@@ -105,9 +114,17 @@ trait BuildsFiltersTrait
      */
     private function setRelationFilter(Builder $builder, string $field, mixed $value, string $filterCode): void
     {
+        //если название связи начинается с !, то добавляем отрицание
+        $not = Str::startsWith($field, '!');
+
+        //pivot-связь
         if (Str::endsWith(Str::before($field, '.'), '_pivot')) {
             //надо достать адрес текущей связи. Для этого вычитаем из кода фильтра ключ текущего фильтра и прибавляем первую связь из текущего фильтра
             $relationPath = implode('.', array_filter([trim(Str::before($filterCode, $field), '.') ?? null, Str::before($field, '.')]));
+
+            //в пути надо убрать все !, они в данном случае не важны
+            $relationPath = Str::replace('!', '', $relationPath);
+
             $relation = $this->findRelation($relationPath, $this->repository->getModelInstance());
 
             $pivotModel = new ($relation->getPivotClass());
@@ -116,13 +133,21 @@ trait BuildsFiltersTrait
 
             $this->setFilter($query, Str::after($field, '_pivot.'), $value, $filterCode);
 
-            $builder->whereExists($query->toBase());
+            $builder->whereExists($query->toBase(), not: $not);
             return;
         }
 
-        $builder->whereHas(Str::before(Str::camel($field), '.'), function (Builder $query) use ($value, $field, $filterCode) {
+        //обычная связь
+        $relationName = Str::replace('!', '', Str::before(Str::camel($field), '.'));
+        $closure = function (Builder $query) use ($value, $field, $filterCode) {
             $this->setFilter($query, Str::after($field, '.'), $value, $filterCode);
-        });
+        };
+
+        if ($not) {
+            $builder->whereDoesntHave($relationName, $closure);
+        } else {
+            $builder->whereHas($relationName, $closure);
+        }
     }
 
     /**Рекурсивный поиск связи по заданному адресу. Например, systems.components_pivot

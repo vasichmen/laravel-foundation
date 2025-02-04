@@ -193,8 +193,10 @@ abstract class AbstractRepository
             //если это составное поле, то проверяем, является это отношением или нет
             if (Str::contains($fieldName, '.')) {
                 $relationFilterName = Str::before($fieldName, '.');
-                $relationName = Str::camel(Str::before($relationFilterName,
-                    '_pivot'));//если в строке нет "_pivot", то название отношения так и останется
+
+                //если в строке нет "_pivot", то название отношения так и останется
+                //при этом надо заменить !, которые нужны для установки whereDoesntHave или whereNotExists
+                $relationName = Str::replace('!', '', Str::camel(Str::before($relationFilterName, '_pivot')));
 
                 //если такое отношение существует
                 if (in_array($relationName, $relations)) {
