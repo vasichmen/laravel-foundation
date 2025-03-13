@@ -48,7 +48,7 @@ trait BuildsOrderByTrait
         $firstModel = $firstRelation->getRelated();
         $innerRelationPath = Str::beforeLast(Str::after($sortByRelation, '.'), '.');
         $relationPath = [];
-        if (Str::contains($innerRelationPath, '.')) {
+        if (Str::contains($sortByRelation, '.')) {
             foreach (explode('.', $innerRelationPath) as $relationName) {
                 $relationPath[] = $relationName;
                 $relation = $this->findRelation(implode('.', $relationPath), $firstModel);
@@ -56,7 +56,7 @@ trait BuildsOrderByTrait
                 self::checkRelation($relation, $relationPath);
 
                 $relatedTable = $relation->getRelated()->getTable();
-                [$firstKey, $secondKey] = $this->getRelationKeys($firstRelation);
+                [$firstKey, $secondKey] = $this->getRelationKeys($relation);
                 $subQuery->leftJoin($relatedTable, $firstKey, '=', $secondKey);
             }
         }
