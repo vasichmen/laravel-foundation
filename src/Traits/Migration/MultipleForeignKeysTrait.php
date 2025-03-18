@@ -7,11 +7,12 @@ use Illuminate\Support\Facades\DB;
 trait MultipleForeignKeysTrait
 {
     /**POSTGRES ONLY: создает триггер в таблице $table, проверяющий наличие ключа в поле $column на существование в любой из таблиц $tables
-     * @param string $table
-     * @param string $column
-     * @param array $tables
-     * @param string $keyColumn
-     * @param string|null $errorMessage
+     * @param string $table название таблицы, на которую ставится проверка
+     * @param string $column название столбца для проверки
+     * @param array $tables список таблиц, в которых ищутся записи
+     * @param string $keyColumn поле для поиска в таблицах $tables
+     * @param string|null $errorMessage текст ошибки
+     * @param bool $cascadeOnDelete если true, то записи из связующей таблицы будут удаляться вместе с записями, на которые ссылается поле $column
      * @return void
      */
     protected function makeMultipleForeignKey(
@@ -19,7 +20,8 @@ trait MultipleForeignKeysTrait
         string $column,
         array $tables,
         string $keyColumn = 'id',
-        ?string $errorMessage = null
+        ?string $errorMessage = null,
+        bool $cascadeOnDelete = false,
     ): void {
         $functionName = 'check_' . $table . '_' . $column . '_value';
         $tables = collect($tables);
@@ -34,7 +36,7 @@ trait MultipleForeignKeysTrait
             LANGUAGE plpgsql
         AS $$
         BEGIN
-            IF 
+            IF
             ";
 
         $conditions = $tables
@@ -63,5 +65,28 @@ trait MultipleForeignKeysTrait
         ";
 
         DB::unprepared($firstPart . $conditions . $secondPart);
+
+
+        //установка триггера на удаление
+        if ($cascadeOnDelete) {
+            $function = "CREATE OR REPLACE FUNCTION {$table}_cascade_delete() returns trigger as
+                $$
+                begin
+                    delete from $table where $column = old.id;
+                    return old;
+                end;
+                $$ LANGUAGE plpgsql;";
+
+            $triggers = $tables->map(function ($relatedTable) use ($table) {
+                return "
+                    CREATE OR REPLACE TRIGGER delete_{$relatedTable}_trigger
+                        before delete
+                        on $relatedTable
+                        for each row
+                    execute procedure {$table}_cascade_delete();";
+            })->join(' ');
+
+            DB::unprepared($function . $triggers);
+        }
     }
 }
