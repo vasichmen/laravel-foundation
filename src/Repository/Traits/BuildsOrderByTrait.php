@@ -18,11 +18,16 @@ trait BuildsOrderByTrait
      */
     public function orderBy(array $orderBy): static
     {
+        $fillable = $this->builder->getModel()->getFillable();
+
         foreach ($orderBy as $column => $direction) {
+            $column = Str::snake($column);
             if (Str::contains($column, '.')) {
                 $this->setRelationOrderBy($this->builder, $column, $direction);
             } else {
-                $this->builder->orderBy($column, $direction);
+                if (in_array($column, $fillable)) {
+                    $this->builder->orderBy($column, $direction);
+                }
             }
         }
         return $this;
@@ -46,7 +51,7 @@ trait BuildsOrderByTrait
 
         $subQuery = $firstRelation->getQuery();
         $firstModel = $firstRelation->getRelated();
-        $innerRelationPath = Str::beforeLast(Str::after($sortByRelation, '.'), '.');
+        $innerRelationPath = Str::after($sortByRelation, '.');
         $relationPath = [];
         if (Str::contains($sortByRelation, '.')) {
             foreach (explode('.', $innerRelationPath) as $relationName) {

@@ -27,4 +27,9 @@ abstract class PivotModel extends AbstractModel
      * @var array<string>|bool
      */
     protected $guarded = [];
+
+    /**По умолчанию отключаем метки времени для pivot-моделей.
+     * @var bool
+     */
+    public $timestamps = false;
 }
