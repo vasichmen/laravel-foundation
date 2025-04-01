@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Str;
 use Laravel\Foundation\Cache\Builder;
+use Laravel\Foundation\Traits\Enum\BaseEnumTrait;
 
 trait BuildsOrderByTrait
 {
@@ -18,7 +19,9 @@ trait BuildsOrderByTrait
      */
     public function orderBy(array $orderBy): static
     {
-        $fillable = $this->builder->getModel()->getFillable();
+        $model = $this->builder->getModel();
+        $fillable = $model->getFillable();
+        $casts = $model->getCasts();
 
         foreach ($orderBy as $column => $direction) {
             $column = Str::snake($column);
@@ -26,11 +29,38 @@ trait BuildsOrderByTrait
                 $this->setRelationOrderBy($this->builder, $column, $direction);
             } else {
                 if (in_array($column, $fillable)) {
-                    $this->builder->orderBy($column, $direction);
+                    $this->builder->orderByRaw(self::prepareField($casts, $column) . " $direction");
                 }
             }
         }
         return $this;
+    }
+
+    /**Подготовка выражения для select нужного столбца
+     * @param array $casts
+     * @param string $field
+     * @param string|null $prefix
+     * @return string
+     */
+    private static function prepareField(array $casts, string $field, ?string $prefix = null): string
+    {
+        if (!array_key_exists($field, $casts)) {
+            return $field;
+        }
+
+        $type = $casts[$field];
+        $prefixed = implode('.', array_filter([$prefix, $field]));
+        switch (true) {
+            case class_exists($type) && is_subclass_of($type, \UnitEnum::class):
+                /** @var BaseEnumTrait $type */
+                return 'case '
+                    . $type::list()
+                        ->map(static fn(array $item) => "when $prefixed = '{$item['id']}' then '{$item['name']}'")
+                        ->join(' ')
+                    . ' end';
+            default:
+                return $prefixed;
+        }
     }
 
     /**Установка сортировки по полю из связи
@@ -44,7 +74,7 @@ trait BuildsOrderByTrait
     {
         $sortByRelation = Str::camel(Str::beforeLast($column, '.'));
 
-        $lastRelationTableName = $this->findRelation($sortByRelation, $builder->getModel())->getRelated()->getTable();
+        $lastRelationModel = $this->findRelation($sortByRelation, $builder->getModel())->getRelated();
 
         $firstRelation = $builder->getRelation(Str::before($sortByRelation, '.'));
         self::checkRelation($firstRelation, [Str::before($sortByRelation, '.')]);
@@ -66,7 +96,8 @@ trait BuildsOrderByTrait
             }
         }
 
-        $subQuery->select($lastRelationTableName . '.' . Str::afterLast($column, '.'));
+        $preparedColumnExpression = self::prepareField($lastRelationModel->getCasts(), Str::afterLast($column, '.'), $lastRelationModel->getTable());
+        $subQuery->selectRaw($preparedColumnExpression);
 
         [$firstKey, $secondKey] = $this->getRelationKeys($firstRelation);
         $subQuery->whereColumn($firstKey, $secondKey);
