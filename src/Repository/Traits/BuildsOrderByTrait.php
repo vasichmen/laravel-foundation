@@ -21,6 +21,7 @@ trait BuildsOrderByTrait
     {
         $model = $this->builder->getModel();
         $fillable = $model->getFillable();
+        $timestamps = $model->usesTimestamps() ? [$model::CREATED_AT, $model::UPDATED_AT] : [];
         $casts = $model->getCasts();
 
         foreach ($orderBy as $column => $direction) {
@@ -28,7 +29,7 @@ trait BuildsOrderByTrait
             if (Str::contains($column, '.')) {
                 $this->setRelationOrderBy($this->builder, $column, $direction);
             } else {
-                if (in_array($column, $fillable)) {
+                if (in_array($column, [...$fillable, ...$timestamps])) {
                     $this->builder->orderByRaw(self::prepareField($casts, $column) . " $direction");
                 }
             }
