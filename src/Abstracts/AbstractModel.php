@@ -137,20 +137,35 @@ abstract class AbstractModel extends Model
 
     /**Метод возвращает названия отношений Eloquent. Определение идет по типу возвращаемого значения, если тип наследован от \Illuminate\Database\Eloquent\Relations\Relation, то метод считается отношением.<br>
      * Если у метода модели не определен возвращаемый тип, то этого отношения не будет в списке
-     * @param string $relationClass Класс связи, который надо найти
+     * @param string|array $relationClass Класс связи, который надо найти
      * @return array<string>
      */
-    public static function getDefinedRelations(string $relationClass = Relation::class): array
+    public static function getDefinedRelations(string|array $relationClass = Relation::class): array
     {
         $refClass = new \ReflectionClass(static::class);
-        $methods = $refClass->getMethods();
+        $methods = $refClass->getMethods(\ReflectionMethod::IS_PUBLIC);
         $result = [];
-        foreach ($methods as $method) {
-            $returnType = $method->getReturnType()?->getName();
+        if (is_string($relationClass)) {
+            $relationClass = [$relationClass];
+        }
 
-            if ($returnType === $relationClass || is_subclass_of($returnType, $relationClass)) {
-                $result[] = $method->getName();
+        foreach ($methods as $method) {
+            $type = $method->getReturnType();
+            if ($type instanceof ReflectionUnionType) {
+                continue;
             }
+            $returnType = $type?->getName();
+            if (in_array($returnType, $relationClass)) {
+                $result[] = $method->getName();
+                continue;
+            }
+            foreach ($relationClass as $class) {
+                if (is_subclass_of($returnType, $class)) {
+                    $result[] = $method->getName();
+                    continue 2;
+                }
+            }
+
         }
         return $result;
     }

@@ -184,7 +184,8 @@ abstract class AbstractRepository
             if (
                 in_array($fieldName, $fillable) ||  //это поле есть в списке полей модели
                 in_array($fieldName, $timestamps) ||  //это поле одно из меток времени
-                $model->getKeyName() === $fieldName //поле является первичным ключом
+                $model->getKeyName() === $fieldName || //поле является первичным ключом
+                in_array(Str::camel($fieldName), $relations) //поле является отношением (для фильтров по пустым отношениям)
             ) {
                 $result[] = $filterCode;
                 continue;

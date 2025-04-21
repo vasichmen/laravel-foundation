@@ -2,8 +2,11 @@
 
 namespace Laravel\Foundation\Repository\Traits;
 
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
+use Laravel\Foundation\Abstracts\AbstractModel;
 use Laravel\Foundation\Cache\Builder;
 
 trait BuildsFiltersTrait
@@ -97,7 +100,24 @@ trait BuildsFiltersTrait
                 $builder->whereIn($field, $value);
                 break;
             case is_null($value):
-                $builder->whereNull($field);
+                /** @var AbstractModel $model */
+                $model = $builder->getModel();
+                $relations = $model::getDefinedRelations([BelongsToMany::class, HasMany::class]);
+                $casts = $model->getCasts();
+                switch (true) {
+                    //json поля с массивами
+                    case in_array($casts[$field] ?? null, ['array', 'collection']):
+                        $builder->whereRaw("($field::jsonb in ('[]'::jsonb,'{}'::jsonb) or $field is null)");
+                        break;
+                    //множественные связи
+                    case in_array(Str::camel($field), $relations):
+                        $builder->whereHas(Str::camel($field), operator: '=', count: 0);
+                        break;
+                    //простые поля
+                    default:
+                        $builder->whereNull($field);
+                        break;
+                }
                 break;
             default:
                 $builder->where($field, $value);
