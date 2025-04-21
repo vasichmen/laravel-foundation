@@ -4,6 +4,7 @@ namespace Laravel\Foundation\Repository\Traits;
 
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use Laravel\Foundation\Abstracts\AbstractModel;
@@ -102,7 +103,7 @@ trait BuildsFiltersTrait
             case is_null($value):
                 /** @var AbstractModel $model */
                 $model = $builder->getModel();
-                $relations = $model::getDefinedRelations([BelongsToMany::class, HasMany::class]);
+                $relations = $model::getDefinedRelations([BelongsToMany::class, HasMany::class, HasOne::class]);
                 $casts = $model->getCasts();
                 switch (true) {
                     //json поля с массивами
