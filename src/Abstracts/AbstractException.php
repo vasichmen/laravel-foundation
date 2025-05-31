@@ -11,7 +11,7 @@ abstract class AbstractException extends \Exception
     protected mixed $data = null;
     protected $code = 0;
 
-    public function __construct(mixed $data = null, int $code = 0, \Throwable $previous = null)
+    public function __construct(mixed $data = null, int $code = 0, ?\Throwable $previous = null)
     {
         $this->data = $data;
         $this->code = $code ?: static::EXCEPTION_CODE;
