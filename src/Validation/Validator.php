@@ -1435,7 +1435,7 @@ class Validator implements ValidatorContract
      *
      * @throws \RuntimeException
      */
-    public function getPresenceVerifier(?$connection = null)
+    public function getPresenceVerifier($connection = null)
     {
         if (!isset($this->presenceVerifier)) {
             throw new RuntimeException('Presence verifier has not been set.');
