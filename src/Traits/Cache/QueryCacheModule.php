@@ -75,10 +75,10 @@ trait QueryCacheModule
      *
      * @param  string       $method
      * @param  array        $columns
-     * @param  string|null  $id
+     * @param string|null $id
      * @return array
      */
-    public function getFromQueryCache(string $method = 'get', array $columns = ['*'], string $id = null)
+    public function getFromQueryCache(string $method = 'get', array $columns = ['*'], ?string $id = null)
     {
         $key = $this->getCacheKey($method);
         $cache = $this->getCache();
@@ -96,11 +96,11 @@ trait QueryCacheModule
      * Get a unique cache key for the complete query.
      *
      * @param  string       $method
-     * @param  string|null  $id
-     * @param  string|null  $appends
+     * @param string|null $id
+     * @param string|null $appends
      * @return string
      */
-    public function getCacheKey(string $method = 'get', string $id = null, string $appends = null): string
+    public function getCacheKey(string $method = 'get', ?string $id = null, ?string $appends = null): string
     {
         if ($this->cacheKey) {
             return $this->cacheKey;
@@ -116,11 +116,11 @@ trait QueryCacheModule
      * Generate the unique cache key for the query.
      *
      * @param  string       $method
-     * @param  string|null  $id
-     * @param  string|null  $appends
+     * @param string|null $id
+     * @param string|null $appends
      * @return string
      */
-    public function generateCacheKey(string $method = 'get', string $id = null, string $appends = null): string
+    public function generateCacheKey(string $method = 'get', ?string $id = null, ?string $appends = null): string
     {
         $key = $this->generatePlainCacheKey($method, $id, $appends);
 
@@ -135,11 +135,11 @@ trait QueryCacheModule
      * Generate the plain unique cache key for the query.
      *
      * @param  string       $method
-     * @param  string|null  $id
-     * @param  string|null  $appends
+     * @param string|null $id
+     * @param string|null $appends
      * @return string
      */
-    public function generatePlainCacheKey(string $method = 'get', string $id = null, string $appends = null): string
+    public function generatePlainCacheKey(string $method = 'get', ?string $id = null, ?string $appends = null): string
     {
         $name = $this->query->connection->getName();
 
@@ -233,10 +233,10 @@ trait QueryCacheModule
      *
      * @param  string        $method
      * @param  array|string  $columns
-     * @param  string|null   $id
+     * @param string|null $id
      * @return \Closure
      */
-    public function getQueryCacheCallback(string $method = 'get', $columns = ['*'], string $id = null)
+    public function getQueryCacheCallback(string $method = 'get', $columns = ['*'], ?string $id = null)
     {
         return function () use ($method, $columns) {
             $this->avoidCache = true;

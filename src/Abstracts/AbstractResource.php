@@ -20,7 +20,7 @@ abstract class AbstractResource extends JsonResource
      * @param callable|null $dataPreparer подготовка поля перед применением ресурса (например, отсортировать)
      * @return array
      */
-    public function getRelation(string $key, string $resourceNamespace, callable $dataPreparer = null): array
+    public function getRelation(string $key, string $resourceNamespace, ?callable $dataPreparer = null): array
     {
         /** @var AbstractResource $resourceNamespace */
 
