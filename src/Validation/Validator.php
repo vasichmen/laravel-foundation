@@ -17,6 +17,7 @@ use Illuminate\Support\Str;
 use Illuminate\Support\ValidatedInput;
 use Illuminate\Validation\Concerns\FormatsMessages;
 use Illuminate\Validation\Concerns\ValidatesAttributes;
+use Illuminate\Validation\DatabasePresenceVerifierInterface;
 use Illuminate\Validation\InvokableValidationRule;
 use Illuminate\Validation\PresenceVerifierInterface;
 use Illuminate\Validation\ValidationData;
@@ -531,7 +532,7 @@ class Validator implements ValidatorContract
      * @param array|null $keys
      * @return \Illuminate\Support\ValidatedInput|array
      */
-    public function safe(array $keys = null)
+    public function safe(?array $keys = null)
     {
         return is_array($keys)
             ? (new ValidatedInput($this->validated()))->only($keys)
