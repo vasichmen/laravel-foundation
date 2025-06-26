@@ -1,6 +1,5 @@
 <?php
 
-
 namespace Laravel\Foundation\Traits\Enum;
 
 use Illuminate\Support\Collection;
@@ -8,8 +7,8 @@ use Laravel\Foundation\Exceptions\EnumTransNotFoundException;
 use UnitEnum;
 
 /**
- * @method cases():array
- * @method from(string $key):array
+ * @method array cases
+ * @method self|UnitEnum from(string|int $key)
  */
 trait BaseEnumTrait
 {
@@ -32,12 +31,11 @@ trait BaseEnumTrait
     }
 
     /**
-     * @param string|null $code Если null, то возвращает id всего блока для этого Enum
+     * @param string|int|null $code Если null, то возвращает id всего блока для этого Enum
      * @param bool $throwIfNotExists
      * @return string|null
-     * @throws EnumTransNotFoundException
      */
-    private static function getTransNameId(?string $code, bool $throwIfNotExists = true): ?string
+    private static function getTransNameId(null|int|string $code, bool $throwIfNotExists = true): ?string
     {
         //для обратной совместимости поддерживаются оба формата lang файла
         $key1 = self::getNamespace() . 'enums.names.' . static::class . (is_null($code) ? '' : ('.' . $code));
@@ -58,10 +56,10 @@ trait BaseEnumTrait
     }
 
     /**
-     * @param string $code код элемента
+     * @param string|int $code код элемента
      * @return string|null
      */
-    private static function getTransDescId(string $code): ?string
+    private static function getTransDescId(string|int $code): ?string
     {
         $key = self::getNamespace() . 'enums.descriptions.' . static::class . '.' . $code;
         if (trans()->has($key)) {
@@ -98,7 +96,7 @@ trait BaseEnumTrait
     public function render(): array
     {
         return [
-            'id' => $this->value,
+            'id' => (string)$this->value,
             'name' => $this->trans(),
             'description' => $this->desc(),
         ];
@@ -123,11 +121,11 @@ trait BaseEnumTrait
      * @return BaseEnumTrait|null
      * @throws EnumTransNotFoundException
      */
-    public static function tryFromTrans(?string $translation): ?self
+    public static function tryFromTrans(?string $translation): ?static
     {
         foreach (trans(self::getTransNameId(null, false)) as $key => $trans) {
             if ($trans === $translation) {
-                return self::from($key);
+                return static::from($key);
             }
         }
 

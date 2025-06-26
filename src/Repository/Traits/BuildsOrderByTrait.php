@@ -45,12 +45,12 @@ trait BuildsOrderByTrait
      */
     private static function prepareField(array $casts, string $field, ?string $prefix = null): string
     {
-        if (!array_key_exists($field, $casts)) {
-            return $field;
-        }
-
-        $type = $casts[$field];
         $prefixed = implode('.', array_filter([$prefix, $field]));
+        if (!array_key_exists($field, $casts)) {
+            return $prefixed;
+        }
+        $type = $casts[$field];
+        
         switch (true) {
             case class_exists($type) && is_subclass_of($type, \UnitEnum::class):
                 /** @var BaseEnumTrait $type */
