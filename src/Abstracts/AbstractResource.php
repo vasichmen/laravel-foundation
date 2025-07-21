@@ -51,29 +51,30 @@ abstract class AbstractResource extends JsonResource
         return (bool)count(array_filter(array_keys($arr), "is_string")) == count($arr);
     }
 
-    /**Рендер enum. Рендерится в объект с кодом и названием. Название берется из метода trans enum. Если К этому enum не прикреплен трейт EnumTranslatable, то вместо имени будет null;
+
+    /**Рендер enum. Рендерится в объект с кодом и названием. Название берется из метода trans enum.
      * @param string $key
+     * @param string|null $renderIdAs тип поля id в объекте. По умолчанию тип такой же, как и тип value. Допускаются значения null, "string", "int"
      * @return array|array[]|null[]
      * @throws NeedExtendedEnumException
      */
-    public function getEnum(string $key): array
+    public function getEnum(string $key, ?string $renderIdAs = null): array
     {
         if (!in_array($key, $this->getFillable())) {
             return [];
         }
-        return $this->renderEnum($key, $this->{$key});
+        return $this->renderEnum($key, $this->{$key}, $renderIdAs);
     }
 
     /**Отрисовка enum в объект с названием и id в заданный ключ. Если первым параметром передать Enum, то вернется только массив описания Enum без ключа
      * @param string|UnitEnum $key
      * @param UnitEnum|null $enum
+     * @param string|null $renderIdAs тип поля id в объекте. По умолчанию тип такой же, как и тип value. Допускаются значения null, "string", "int"
      * @return array|array[]|null[]
      * @throws NeedExtendedEnumException
      */
-    public function renderEnum(string|UnitEnum $key, ?UnitEnum $enum = null): array
+    public function renderEnum(string|UnitEnum $key, null|UnitEnum $enum = null, ?string $renderIdAs = null): array
     {
-        /** @var BaseEnumTrait $enum */
-
         $withoutKey = $key instanceof UnitEnum;
         if ($withoutKey) {
             $enum = $key;
@@ -87,7 +88,9 @@ abstract class AbstractResource extends JsonResource
             throw new NeedExtendedEnumException('Объект ' . get_class($enum) . ' должен быть расширен трейтом ' . BaseEnumTrait::class);
         }
 
-        $result = $enum->render();
+        /** @var BaseEnumTrait $enum */
+
+        $result = $enum->render($renderIdAs);
         if ($withoutKey) {
             return $result;
         }
@@ -99,16 +102,17 @@ abstract class AbstractResource extends JsonResource
 
     /**Рендер массива кодов Enum
      * @param string $field
-     * @param string $enumClass
+     * @param string|UnitEnum $enumClass
+     * @param string|null $renderIdAs тип поля id в объекте. По умолчанию тип такой же, как и тип value. Допускаются значения null, "string", "int"
      * @return array|array[]
      * @throws NeedExtendedEnumException
      */
-    public function getEnumArray(string $field, string $enumClass): array
+    public function getEnumArray(string $field, string $enumClass, ?string $renderIdAs = null): array
     {
-        /** @var UnitEnum $enumClass */
-
-        if (!in_array($field, $this->getFillable())) {
-            return [];
+        if ($this->resource instanceof AbstractModel) {
+            if (!in_array($field, $this->getFillable())) {
+                return [];
+            }
         }
 
         $value = $this->{$field};
@@ -117,7 +121,7 @@ abstract class AbstractResource extends JsonResource
         }
         $result = [];
         foreach ($value as $id) {
-            $result[] = $this->renderEnum($enumClass::from($id));
+            $result[] = $this->renderEnum($enumClass::from($id), $renderIdAs);
         }
 
         return [$field => $result];

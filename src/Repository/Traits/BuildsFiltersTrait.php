@@ -5,6 +5,7 @@ namespace Laravel\Foundation\Repository\Traits;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Query\Expression;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use Laravel\Foundation\Abstracts\AbstractModel;
@@ -36,7 +37,14 @@ trait BuildsFiltersTrait
      */
     private function setFilter(Builder $builder, string $field, mixed $value, string $filterCode): void
     {
-        $dbField = Str::before($field, '@');
+        //если from это выражения - значит был вызван fromRaw или join. В этих случаях префиксом должен быть алиас из запроса
+        if ($builder->from instanceof Expression) {
+            $q = $builder->from->getValue($builder->getGrammar());
+            $prefix = Str::before(Str::after($q, ' '), ' ');
+        } else {
+            $prefix = $builder->from;
+        }
+        $dbField = $prefix . '.' . Str::before($field, '@');
         switch (true) {
             case Str::contains($field, '.'):
                 $this->setRelationFilter($builder, $field, $value, $filterCode);
@@ -84,7 +92,7 @@ trait BuildsFiltersTrait
                     case is_array($value) || ($value instanceof Collection):
                         $builder->whereNotIn($dbField, $value);
                         break;
-                    case is_null($value):
+                    case is_null($value) || $value === '':
                         $builder->whereNotNull($dbField);
                         break;
                     default:
@@ -98,9 +106,9 @@ trait BuildsFiltersTrait
                 $builder->where($dbField, 'ilike', "%$value%");
                 break;
             case is_array($value) || ($value instanceof Collection):
-                $builder->whereIn($field, $value);
+                $builder->whereIn($dbField, $value);
                 break;
-            case is_null($value):
+            case is_null($value) || $value === '':
                 /** @var AbstractModel $model */
                 $model = $builder->getModel();
                 $relations = $model::getDefinedRelations([BelongsToMany::class, HasMany::class, HasOne::class]);
@@ -108,7 +116,7 @@ trait BuildsFiltersTrait
                 switch (true) {
                     //json поля с массивами
                     case in_array($casts[$field] ?? null, ['array', 'collection']):
-                        $builder->whereRaw("($field::jsonb in ('[]'::jsonb,'{}'::jsonb) or $field is null)");
+                        $builder->whereRaw("($dbField::jsonb in ('[]'::jsonb,'{}'::jsonb) or $field is null)");
                         break;
                     //множественные связи
                     case in_array(Str::camel($field), $relations):
@@ -116,12 +124,12 @@ trait BuildsFiltersTrait
                         break;
                     //простые поля
                     default:
-                        $builder->whereNull($field);
+                        $builder->whereNull($dbField);
                         break;
                 }
                 break;
             default:
-                $builder->where($field, $value);
+                $builder->where($dbField, $value);
                 break;
         }
     }

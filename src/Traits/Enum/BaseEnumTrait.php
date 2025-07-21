@@ -6,6 +6,7 @@ use Illuminate\Support\Collection;
 use Laravel\Foundation\Exceptions\EnumTransNotFoundException;
 use UnitEnum;
 
+
 /**
  * @method array cases
  * @method self|UnitEnum from(string|int $key)
@@ -93,10 +94,21 @@ trait BaseEnumTrait
         return trans($key, $args);
     }
 
-    public function render(): array
+    /**Разворачивает енум в массив с полями id,name,description
+     * @param string|null $renderIdAs тип поля id в объекте. По умолчанию тип такой же, как и тип value. Допускаются значения null, "string", "int"
+     * @return array
+     * @throws EnumTransNotFoundException
+     */
+    public function render(?string $renderIdAs = null): array
     {
+        $id = match ($renderIdAs) {
+            null => $this->value,
+            'string' => (string)$this->value,
+            'int' => (int)$this->value,
+        };
+
         return [
-            'id' => (string)$this->value,
+            'id' => $id,
             'name' => $this->trans(),
             'description' => $this->desc(),
         ];
