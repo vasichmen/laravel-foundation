@@ -2,6 +2,7 @@
 
 namespace Laravel\Foundation\Repository\Traits;
 
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
@@ -37,6 +38,11 @@ trait BuildsFiltersTrait
      */
     private function setFilter(Builder $builder, string $field, mixed $value, string $filterCode): void
     {
+        /** @var AbstractModel $model */
+        $model = $builder->getModel();
+        $casts = $model->getCasts();
+        $cast = $casts[$field] ?? null;
+
         //если from это выражения - значит был вызван fromRaw или join. В этих случаях префиксом должен быть алиас из запроса
         if ($builder->from instanceof Expression) {
             $q = $builder->from->getValue($builder->getGrammar());
@@ -79,6 +85,10 @@ trait BuildsFiltersTrait
                 $builder->where($dbField, '>=', $value);
                 break;
             case Str::endsWith($field, '@lte'):
+                //для полей с типом Дата надо переставить запрос на конец дня
+                if ($cast === 'date' || in_array(Str::before($field, '@'), [$model::CREATED_AT, $model::UPDATED_AT])) {
+                    $value = Carbon::parse($value)->endOfDay();
+                }
                 $builder->where($dbField, '<=', $value);
                 break;
             case Str::endsWith($field, '@gt'):
@@ -110,9 +120,7 @@ trait BuildsFiltersTrait
                 break;
             case is_null($value) || $value === '':
                 /** @var AbstractModel $model */
-                $model = $builder->getModel();
                 $relations = $model::getDefinedRelations([BelongsToMany::class, HasMany::class, HasOne::class]);
-                $casts = $model->getCasts();
                 switch (true) {
                     //json поля с массивами
                     case in_array($casts[$field] ?? null, ['array', 'collection']):
