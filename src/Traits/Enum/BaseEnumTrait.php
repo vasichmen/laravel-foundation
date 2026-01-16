@@ -110,7 +110,7 @@ trait BaseEnumTrait
         return [
             'id' => $id,
             'name' => $this->trans(),
-            'description' => $this->desc(),
+            ...($this->desc() ? ['description' => $this->desc()] : []),
         ];
     }
 

@@ -50,15 +50,12 @@ trait BuildsOrderByTrait
             return $prefixed;
         }
         $type = $casts[$field];
-        
+
         switch (true) {
             case class_exists($type) && is_subclass_of($type, \UnitEnum::class):
                 /** @var BaseEnumTrait $type */
-                return 'case '
-                    . $type::list()
-                        ->map(static fn(array $item) => "when $prefixed = '{$item['id']}' then '{$item['name']}'")
-                        ->join(' ')
-                    . ' end';
+                return 'case ' .
+                    $type::list()->map(static fn(array $item) => "when $prefixed = '{$item['id']}' then '{$item['name']}'")->join(' ') . ' end';
             default:
                 return $prefixed;
         }
@@ -97,7 +94,11 @@ trait BuildsOrderByTrait
             }
         }
 
-        $preparedColumnExpression = self::prepareField($lastRelationModel->getCasts(), Str::afterLast($column, '.'), $lastRelationModel->getTable());
+        $preparedColumnExpression = self::prepareField(
+            $lastRelationModel->getCasts(),
+            Str::afterLast($column, '.'),
+            '"' . $lastRelationModel->getTable() . '"'
+        );
         $subQuery->selectRaw($preparedColumnExpression);
 
         [$firstKey, $secondKey] = $this->getRelationKeys($firstRelation);

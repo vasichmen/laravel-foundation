@@ -3,6 +3,7 @@
 
 namespace Laravel\Foundation\Abstracts;
 
+use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Carbon;
@@ -16,18 +17,16 @@ abstract class AbstractResource extends JsonResource
 {
     /**Рендер связи модели. Если связь не загружена, то возвращает пустой массив. Если связь - массив, то ресурс будет применен к каждому элементу
      * @param string $key поле модели или название связи, откуда брать данные
-     * @param string $resourceNamespace класс ресурса для сущности
+     * @param string|AbstractResource $resourceNamespace класс ресурса для сущности
      * @param callable|null $dataPreparer подготовка поля перед применением ресурса (например, отсортировать)
      * @return array
      */
-    public function getRelation(string $key, string $resourceNamespace, ?callable $dataPreparer = null): array
+    protected function getRelation(string $key, string $resourceNamespace, ?callable $dataPreparer = null): array
     {
-        /** @var AbstractResource $resourceNamespace */
-
-        if (!$this?->isRelation($key) || !$this?->relationLoaded($key)) {
+        if (!$this->resource->isRelation($key) || !$this->resource->relationLoaded($key)) {
             return [];
         }
-        $resourceData = $this->getRelationValue($key);
+        $resourceData = $this->resource->getRelationValue($key);
 
         if ($dataPreparer) {
             $resourceData = $dataPreparer($resourceData);
@@ -39,18 +38,12 @@ abstract class AbstractResource extends JsonResource
                 is_null($resourceData) => null,
                 $resourceData instanceof Collection,
                     $resourceData instanceof SupportCollection,
-                    is_array($resourceData) && !$this->isAssociative($resourceData)
+                    is_array($resourceData) && array_is_list($resourceData)
                 => $resourceNamespace::collection($resourceData),
                 default => new $resourceNamespace($resourceData)
             },
         ];
     }
-
-    private function isAssociative(array $arr): bool
-    {
-        return (bool)count(array_filter(array_keys($arr), "is_string")) == count($arr);
-    }
-
 
     /**Рендер enum. Рендерится в объект с кодом и названием. Название берется из метода trans enum.
      * @param string $key
@@ -58,9 +51,13 @@ abstract class AbstractResource extends JsonResource
      * @return array|array[]|null[]
      * @throws NeedExtendedEnumException
      */
-    public function getEnum(string $key, ?string $renderIdAs = null): array
+    protected function getEnum(string $key, ?string $renderIdAs = null): array
     {
-        if (!in_array($key, $this->getFillable())) {
+        if ($this->resource instanceof AbstractDto) {
+            return [$key => $this->resource->{$key}->render()];
+        }
+
+        if (!in_array($key, $this->resource->getFillable())) {
             return [];
         }
         return $this->renderEnum($key, $this->{$key}, $renderIdAs);
@@ -73,7 +70,7 @@ abstract class AbstractResource extends JsonResource
      * @return array|array[]|null[]
      * @throws NeedExtendedEnumException
      */
-    public function renderEnum(string|UnitEnum $key, null|UnitEnum $enum = null, ?string $renderIdAs = null): array
+    protected function renderEnum(string|UnitEnum $key, null|UnitEnum $enum = null, ?string $renderIdAs = null): array
     {
         $withoutKey = $key instanceof UnitEnum;
         if ($withoutKey) {
@@ -107,10 +104,10 @@ abstract class AbstractResource extends JsonResource
      * @return array|array[]
      * @throws NeedExtendedEnumException
      */
-    public function getEnumArray(string $field, string $enumClass, ?string $renderIdAs = null): array
+    protected function getEnumArray(string $field, string $enumClass, ?string $renderIdAs = null): array
     {
         if ($this->resource instanceof AbstractModel) {
-            if (!in_array($field, $this->getFillable())) {
+            if (!in_array($field, $this->resource->getFillable())) {
                 return [];
             }
         }
@@ -128,31 +125,42 @@ abstract class AbstractResource extends JsonResource
     }
 
 
-    /**Рендер даты в одном формате
+    /**Рендер даты из поля текущего объекта модели. НЕ работает с DTO
      * @param string $field
      * @return array<string=>Carbon>
      */
-    public function getDate(string $field): array
+    protected function getDate(string $field): array
     {
         /** @var AbstractModel $this */
         if (!array_key_exists($field, $this->getAttributes())) {
             return [];
         }
 
+        //2023-09-22T16:50:59.000000Z
+        return $this->renderDate($field);
+    }
+
+    /**Рендер даты из поля текущего объекта. Работает с DTO
+     * @param string $field
+     * @return array|null[]
+     */
+    protected function renderDate(string $field): array
+    {
         /** @var Carbon $date */
         $date = $this->{$field};
         if (is_null($date)) {
-            return [$field => null];
+            return [Str::snake($field) => null];
         }
+
         $date = $date->setTimezone('UTC');
-        //2023-09-22T16:50:59.000000Z
-        return [$field => $date->format('Y-m-d\TH:i:s.u\Z')];
+
+        return [Str::snake($field) => $date->format('Y-m-d\TH:i:s.u\Z')];
     }
 
-    /**Рендер дат создания и обновления
+    /**Рендер дат создания и обновления. Только для моделей
      * @return array{created_at:Carbon,updated_at:Carbon}
      */
-    public function renderTimestamps(): array
+    protected function renderTimestamps(): array
     {
         /** @var AbstractModel $model */
         $model = $this->resource;
@@ -162,28 +170,32 @@ abstract class AbstractResource extends JsonResource
         ];
     }
 
-    public function getAttribute(string $name): array
-    {
-        return $this->offsetExists($name)
-            ? [$name => $this[$name]]
-            : [];
-    }
-
-    /**Объединяет сущности в связи через запятую
-     * @param string $entity название связи
-     * @param string $fieldName название поля, откуда брать название сущности в связи
+    /**Рендер списка полей. Если поле не инициализировано в модели(например, не загружено через select), то его не будет в массиве
+     * @param array $fields
      * @return array
      */
-    protected function getEntityListString(string $entity, string $fieldName = 'name'): array
+    protected function getFields(array $fields): array
     {
-        if (!$this?->relationLoaded($entity)) {
-            return [];
-        }
+        //для модели берем только загруженные атрибуты. Для массивов и коллекций - сам ресурс, для всего остального приводим к массиву.
+        $attrs = match (true) {
+            $this->resource instanceof AbstractModel => $this->resource->getAttributes(),
+            $this->resource instanceof AbstractDto => $this->resource->toArray(),
+            $this->resource instanceof Arrayable => $this->resource->toArray(),
+            is_array($this->resource) => $this->resource,
+            is_object($this->resource) => (array)$this->resource,
+            default => throw new \Exception('Этот тип не реализован'),
+        };
 
-        $entities = $this[$entity];
-        if ($entities->isEmpty()) {
-            return ["{$entity}_string" => ''];
+        //все переданные поля приводим к snake
+        $fields = collect($fields)->map(static fn(string $field) => Str::snake($field));
+
+        $result = [];
+        foreach ($attrs as $attr => $value) {
+            $attr = Str::snake($attr);
+            if ($fields->contains($attr)) {
+                $result[$attr] = $value;
+            }
         }
-        return ["{$entity}_string" => $entities->pluck($fieldName)->join(', ')];
+        return $result;
     }
 }

@@ -15,6 +15,7 @@ class GetListRequest extends AbstractRequest
             'q' => 'string',
             'filters' => 'array',
             'queries' => 'array',
+            'properties' => 'array|nullable',
             'select' => 'array',
 
             ...$this->sorted(false),

@@ -34,7 +34,7 @@ abstract class AbstractRepository
             return null;
         }
         if (!($model instanceof AbstractModel)) {
-            $model = static::query()->filters(['id' => $model])->with($with)->find();
+            $model = static::query()->filters([static::getInstance()->getModelInstance()->getKeyName() => $model])->with($with)->find();
         }
         return $model;
     }

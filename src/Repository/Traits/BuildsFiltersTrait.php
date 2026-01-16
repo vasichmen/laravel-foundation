@@ -42,15 +42,18 @@ trait BuildsFiltersTrait
         $model = $builder->getModel();
         $casts = $model->getCasts();
         $cast = $casts[$field] ?? null;
+        $relations = $model::getDefinedRelations([BelongsToMany::class, HasMany::class, HasOne::class]);
 
         //если from это выражения - значит был вызван fromRaw или join. В этих случаях префиксом должен быть алиас из запроса
         if ($builder->from instanceof Expression) {
             $q = $builder->from->getValue($builder->getGrammar());
             $prefix = Str::before(Str::after($q, ' '), ' ');
         } else {
-            $prefix = $builder->from;
+            //в from может быть записан алиас laravel_reserved_* при последовательных join. Если это так, то надо отбросить оригинальное название таблицы и оставить только алиас
+            $prefix = Str::after($builder->from, ' as ');
         }
         $dbField = $prefix . '.' . Str::before($field, '@');
+
         switch (true) {
             case Str::contains($field, '.'):
                 $this->setRelationFilter($builder, $field, $value, $filterCode);
@@ -103,7 +106,20 @@ trait BuildsFiltersTrait
                         $builder->whereNotIn($dbField, $value);
                         break;
                     case is_null($value) || $value === '':
-                        $builder->whereNotNull($dbField);
+                        switch (true) {
+                            //json поля с массивами
+                            case in_array($cast, ['array', 'collection']):
+                                $builder->whereRaw("($dbField::jsonb not in ('[]'::jsonb,'{}'::jsonb) or $field is not null)");
+                                break;
+                            //множественные связи
+                            case in_array(Str::camel(Str::afterLast($dbField, '.')), $relations):
+                                $builder->whereHas(Str::camel(Str::afterLast($dbField, '.')));
+                                break;
+                            //простые поля
+                            default:
+                                $builder->whereNotNull($dbField);
+                                break;
+                        }
                         break;
                     default:
                         $builder->whereNot($dbField, $value);
@@ -115,15 +131,19 @@ trait BuildsFiltersTrait
             case Str::endsWith($field, '@ilike'):
                 $builder->where($dbField, 'ilike', "%$value%");
                 break;
+            case Str::endsWith($field, '@!like'):
+                $builder->whereNot($dbField, 'like', "%$value%");
+                break;
+            case Str::endsWith($field, '@!ilike'):
+                $builder->whereNot($dbField, 'ilike', "%$value%");
+                break;
             case is_array($value) || ($value instanceof Collection):
                 $builder->whereIn($dbField, $value);
                 break;
             case is_null($value) || $value === '':
-                /** @var AbstractModel $model */
-                $relations = $model::getDefinedRelations([BelongsToMany::class, HasMany::class, HasOne::class]);
                 switch (true) {
                     //json поля с массивами
-                    case in_array($casts[$field] ?? null, ['array', 'collection']):
+                    case in_array($cast, ['array', 'collection']):
                         $builder->whereRaw("($dbField::jsonb in ('[]'::jsonb,'{}'::jsonb) or $field is null)");
                         break;
                     //множественные связи
