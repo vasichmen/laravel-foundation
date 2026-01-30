@@ -162,12 +162,13 @@ abstract class AbstractResource extends JsonResource
      */
     protected function renderTimestamps(): array
     {
-        /** @var AbstractModel $model */
-        $model = $this->resource;
-        return [
-            $model::CREATED_AT => $model->{$model::CREATED_AT},
-            $model::UPDATED_AT => $model->{$model::UPDATED_AT},
-        ];
+        if ($this->resource instanceof AbstractModel) {
+            /** @var AbstractModel $model */
+            $model = $this->resource;
+            return $this->getFields([$model::CREATED_AT, $model::UPDATED_AT]);
+        }
+        throw new \Exception('Метод renderTimestamsps работет только с моделями');
+
     }
 
     /**Рендер списка полей. Если поле не инициализировано в модели(например, не загружено через select), то его не будет в массиве
