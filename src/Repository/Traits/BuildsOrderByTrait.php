@@ -5,9 +5,12 @@ namespace Laravel\Foundation\Repository\Traits;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\Relation;
+use Illuminate\Database\Query\Expression;
 use Illuminate\Support\Str;
+use Laravel\Foundation\Abstracts\AbstractModel;
 use Laravel\Foundation\Cache\Builder;
 use Laravel\Foundation\Traits\Enum\BaseEnumTrait;
+
 
 trait BuildsOrderByTrait
 {
@@ -61,7 +64,7 @@ trait BuildsOrderByTrait
         }
     }
 
-    /**Установка сортировки по полю из связи
+    /**Установка сортировки по полю из связи. Для возможности сортировки по полям той же таблицы в каждый подзапрос добавляется алиас
      * @param Builder $builder
      * @param string $column
      * @param string $direction
@@ -74,42 +77,59 @@ trait BuildsOrderByTrait
 
         $lastRelationModel = $this->findRelation($sortByRelation, $builder->getModel())->getRelated();
 
+        /** @var BelongsTo|HasOne $firstRelation */
         $firstRelation = $builder->getRelation(Str::before($sortByRelation, '.'));
         self::checkRelation($firstRelation, [Str::before($sortByRelation, '.')]);
 
         $subQuery = $firstRelation->getQuery();
-        $subQuery->fromRaw("$subQuery->from {$subQuery->from}_0");
+        $firstRelationTableAlias = "{$subQuery->from}_0";
+        $subQuery->fromRaw("$subQuery->from $firstRelationTableAlias");
 
-        //сборка join для вложенных связей
+        /** @var AbstractModel $firstModel */
         $firstModel = $firstRelation->getRelated();
+        $lastRelationTableAlias = "{$lastRelationModel->getTable()}_0";
         $innerRelationPath = Str::after($sortByRelation, '.');
         $relationPath = [];
         if (Str::contains($sortByRelation, '.')) {
-            $i = 1;
+            $i = 0;
+            $chainAlias = $firstRelationTableAlias;
+
+            //join всех связей последовательно с учетом алиасов
             foreach (explode('.', $innerRelationPath) as $relationName) {
                 $relationPath[] = $relationName;
+
+                /** @var BelongsTo|HasOne $relation */
                 $relation = $this->findRelation(implode('.', $relationPath), $firstModel);
 
                 self::checkRelation($relation, $relationPath);
 
                 $relatedTable = $relation->getRelated()->getTable();
-                [$firstKey, $secondKey] = $this->getRelationKeys($relation, "{$relatedTable}_$i");
-                $subQuery->leftJoin("$relatedTable {$relatedTable}_$i", $firstKey, '=', $secondKey);
+                $newChainAlias = "{$relatedTable}_$i";
+                [$firstKey, $secondKey] = $this->getRelationKeys($relation, $chainAlias, $newChainAlias);
 
+                $subQuery->leftJoin(
+                    new Expression("$relatedTable $newChainAlias"),
+                    new Expression($firstKey),
+                    '=',
+                    new Expression($secondKey));
+
+                $chainAlias = $newChainAlias;
                 $i++;
             }
         }
 
-        //основной запрос сортировки по заданному полю
         $preparedColumnExpression = self::prepareField(
             $lastRelationModel->getCasts(),
             Str::afterLast($column, '.'),
-            '"' . "{$lastRelationModel->getTable()}_0" . '"'
+            $lastRelationTableAlias,
         );
+
         $subQuery->selectRaw($preparedColumnExpression);
 
-        //подключение первой таблицы связи
-        [$firstKey, $secondKey] = $this->getRelationKeys($firstRelation, "{$firstRelation->getModel()->getTable()}_0");
+        [$firstKey, $secondKey] = $this->getRelationKeys($firstRelation,
+            $builder->getModel()->getTable(),
+            $firstRelationTableAlias
+        );
         $subQuery->whereColumn($firstKey, $secondKey);
 
         $builder->orderBy($subQuery, $direction);
@@ -131,16 +151,21 @@ trait BuildsOrderByTrait
 
     /**Возвращает названия ключей с таблицами для условий объединения
      * @param BelongsTo|HasOne $relation
-     * @param string $ownerTablePrefix префикс таблицы-владельца. Для возможности подзапросов к таблицам, которые уже участвуют в основном запросе
+     * @param string $firstTablePrefix
+     * @param string $secondTablePrefix
      * @return array{0:string,1:string}
-     * @throws \Exception
      */
-    private function getRelationKeys(BelongsTo|HasOne $relation, string $ownerTablePrefix): array
+    private function getRelationKeys(BelongsTo|HasOne $relation, string $firstTablePrefix, string $secondTablePrefix): array
     {
         return match (true) {
-            $relation instanceof HasOne => ["$ownerTablePrefix.{$relation->getForeignKeyName()}", $relation->getQualifiedParentKeyName()],
-            $relation instanceof BelongsTo => [$relation->getQualifiedForeignKeyName(), "$ownerTablePrefix.{$relation->getOwnerKeyName()}"],
-            default => throw new \Exception('Этот тип связи не реализован'),
+            $relation instanceof HasOne => [
+                "$firstTablePrefix.{$relation->getLocalKeyName()}",
+                "$secondTablePrefix.{$relation->getForeignKeyName()}"
+            ],
+            $relation instanceof BelongsTo => [
+                "$firstTablePrefix.{$relation->getForeignKeyName()}",
+                "$secondTablePrefix.{$relation->getOwnerKeyName()}"
+            ],
         };
     }
 }
