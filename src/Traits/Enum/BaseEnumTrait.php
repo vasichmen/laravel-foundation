@@ -3,6 +3,7 @@
 namespace Laravel\Foundation\Traits\Enum;
 
 use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 use Laravel\Foundation\Exceptions\EnumTransNotFoundException;
 use UnitEnum;
 
@@ -136,7 +137,7 @@ trait BaseEnumTrait
     public static function tryFromTrans(?string $translation): ?static
     {
         foreach (trans(self::getTransNameId(null, false)) as $key => $trans) {
-            if ($trans === $translation) {
+            if (Str::lower($trans) === Str::lower($translation)) {
                 return static::from($key);
             }
         }

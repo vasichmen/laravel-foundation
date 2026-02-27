@@ -78,10 +78,14 @@ trait BuildsOrderByTrait
         self::checkRelation($firstRelation, [Str::before($sortByRelation, '.')]);
 
         $subQuery = $firstRelation->getQuery();
+        $subQuery->fromRaw("$subQuery->from {$subQuery->from}_0");
+
+        //сборка join для вложенных связей
         $firstModel = $firstRelation->getRelated();
         $innerRelationPath = Str::after($sortByRelation, '.');
         $relationPath = [];
         if (Str::contains($sortByRelation, '.')) {
+            $i = 1;
             foreach (explode('.', $innerRelationPath) as $relationName) {
                 $relationPath[] = $relationName;
                 $relation = $this->findRelation(implode('.', $relationPath), $firstModel);
@@ -89,19 +93,23 @@ trait BuildsOrderByTrait
                 self::checkRelation($relation, $relationPath);
 
                 $relatedTable = $relation->getRelated()->getTable();
-                [$firstKey, $secondKey] = $this->getRelationKeys($relation);
-                $subQuery->leftJoin($relatedTable, $firstKey, '=', $secondKey);
+                [$firstKey, $secondKey] = $this->getRelationKeys($relation, "{$relatedTable}_$i");
+                $subQuery->leftJoin("$relatedTable {$relatedTable}_$i", $firstKey, '=', $secondKey);
+
+                $i++;
             }
         }
 
+        //основной запрос сортировки по заданному полю
         $preparedColumnExpression = self::prepareField(
             $lastRelationModel->getCasts(),
             Str::afterLast($column, '.'),
-            '"' . $lastRelationModel->getTable() . '"'
+            '"' . "{$lastRelationModel->getTable()}_0" . '"'
         );
         $subQuery->selectRaw($preparedColumnExpression);
 
-        [$firstKey, $secondKey] = $this->getRelationKeys($firstRelation);
+        //подключение первой таблицы связи
+        [$firstKey, $secondKey] = $this->getRelationKeys($firstRelation, "{$firstRelation->getModel()->getTable()}_0");
         $subQuery->whereColumn($firstKey, $secondKey);
 
         $builder->orderBy($subQuery, $direction);
@@ -123,13 +131,15 @@ trait BuildsOrderByTrait
 
     /**Возвращает названия ключей с таблицами для условий объединения
      * @param BelongsTo|HasOne $relation
+     * @param string $ownerTablePrefix префикс таблицы-владельца. Для возможности подзапросов к таблицам, которые уже участвуют в основном запросе
      * @return array{0:string,1:string}
+     * @throws \Exception
      */
-    private function getRelationKeys(BelongsTo|HasOne $relation): array
+    private function getRelationKeys(BelongsTo|HasOne $relation, string $ownerTablePrefix): array
     {
         return match (true) {
-            $relation instanceof HasOne => [$relation->getQualifiedForeignKeyName(), $relation->getQualifiedParentKeyName()],
-            $relation instanceof BelongsTo => [$relation->getQualifiedForeignKeyName(), $relation->getQualifiedOwnerKeyName()],
+            $relation instanceof HasOne => ["$ownerTablePrefix.{$relation->getForeignKeyName()}", $relation->getQualifiedParentKeyName()],
+            $relation instanceof BelongsTo => [$relation->getQualifiedForeignKeyName(), "$ownerTablePrefix.{$relation->getOwnerKeyName()}"],
             default => throw new \Exception('Этот тип связи не реализован'),
         };
     }
