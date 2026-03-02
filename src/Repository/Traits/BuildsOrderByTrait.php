@@ -87,7 +87,6 @@ trait BuildsOrderByTrait
 
         /** @var AbstractModel $firstModel */
         $firstModel = $firstRelation->getRelated();
-        $lastRelationTableAlias = "{$lastRelationModel->getTable()}_0";
         $innerRelationPath = Str::after($sortByRelation, '.');
         $relationPath = [];
         if (Str::contains($sortByRelation, '.')) {
@@ -121,8 +120,8 @@ trait BuildsOrderByTrait
         $preparedColumnExpression = self::prepareField(
             $lastRelationModel->getCasts(),
             Str::afterLast($column, '.'),
-            $lastRelationTableAlias,
-        );
+            $chainAlias ?? "{$lastRelationModel->getTable()}_0", // если был вход в цикл, то берем последнюю таблицу из join. Если не было, то берем алиас таблицы последнего отношения
+    );
 
         $subQuery->selectRaw($preparedColumnExpression);
 
