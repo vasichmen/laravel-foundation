@@ -165,7 +165,13 @@ abstract class AbstractResource extends JsonResource
         if ($this->resource instanceof AbstractModel) {
             /** @var AbstractModel $model */
             $model = $this->resource;
-            return $this->getFields([$model::CREATED_AT, $model::UPDATED_AT]);
+            if (!$model->usesTimestamps()) {
+                throw new \Exception("Модель $model не содержит меток времени");
+            }
+            return [
+                ...$this->getDate('created_at'),
+                ...$this->getDate('updated_at'),
+            ];
         }
         throw new \Exception('Метод renderTimestamsps работет только с моделями');
 
