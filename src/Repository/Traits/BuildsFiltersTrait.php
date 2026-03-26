@@ -137,6 +137,12 @@ trait BuildsFiltersTrait
             case Str::endsWith($field, '@!ilike'):
                 $builder->whereNot($dbField, 'ilike', "%$value%");
                 break;
+            case Str::endsWith($field, '@year'):
+                $builder->whereYear($dbField, $value);
+                break;
+            case Str::endsWith($field, '@month'):
+                $builder->whereMonth($dbField, $value);
+                break;
             case is_array($value) || ($value instanceof Collection):
                 $builder->whereIn($dbField, $value);
                 break;
