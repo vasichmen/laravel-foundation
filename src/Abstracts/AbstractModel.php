@@ -6,9 +6,11 @@ namespace Laravel\Foundation\Abstracts;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Database\Query\Builder;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use Laravel\Foundation\Traits\Cache\HasCustomCacheTrait;
 use Laravel\Foundation\Traits\Cache\QueryCacheableTrait;
+use ReflectionUnionType;
 
 /**
  * @method static bool flushQueryCache(string[] $tags = [])
@@ -133,6 +135,36 @@ abstract class AbstractModel extends Model
     public function getKeyType()
     {
         return 'string';
+    }
+
+    public function relationLoaded($key)
+    {
+        if (array_key_exists($key, $this->relations)) {
+            return true;
+        }
+        if (!Str::contains($key, '.')) {
+            return false;
+        }
+
+        $relations = $this->relations;
+        $path = explode('.', $key);
+        foreach ($path as $part) {
+            if ($part === 'pivot') {
+                $relations = $relations->first();
+            }
+            if (!array_key_exists($part, $relations)) {
+                return false;
+            }
+            if (($collection = $relations[$part]) instanceof Collection) {
+                if ($collection->isEmpty()) {
+                    return true;
+                }
+                $relations = $collection->first()->getRelations();
+            } else {
+                $relations = $relations[$part]->getRelations();
+            }
+        }
+        return true;
     }
 
     /**Метод возвращает названия отношений Eloquent. Определение идет по типу возвращаемого значения, если тип наследован от \Illuminate\Database\Eloquent\Relations\Relation, то метод считается отношением.<br>
