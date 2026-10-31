@@ -167,6 +167,33 @@ abstract class AbstractModel extends Model
         return true;
     }
 
+    /**Удаляет список отношений из модели. Если передается путь связи, то удалятся все от корня
+     * @param array|string $relation
+     * @return AbstractModel
+     */
+    public function unsetRelation($relation)
+    {
+        if (is_array($relation)) {
+            foreach ($relation as $relationItem) {
+                $this->unsetRelation($relationItem);
+            }
+            return $this;
+        }
+
+        return parent::unsetRelation(Str::before($relation, '.'));
+    }
+
+    /**Удаляет атрибут из модели с учетом кэша кастов
+     * @param string $attribute
+     * @return AbstractModel
+     */
+    public function unsetAttribute(string $attribute): AbstractModel
+    {
+        $this->mergeAttributesFromCachedCasts();
+        unset($this->attributes[$attribute]);
+        return $this;
+    }
+
     /**Метод возвращает названия отношений Eloquent. Определение идет по типу возвращаемого значения, если тип наследован от \Illuminate\Database\Eloquent\Relations\Relation, то метод считается отношением.<br>
      * Если у метода модели не определен возвращаемый тип, то этого отношения не будет в списке
      * @param string|array $relationClass Класс связи, который надо найти

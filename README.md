@@ -4,14 +4,14 @@
   * [Сервис-провайдер](#appserviceprovider)
   * [Базовая авторизация](#базовая-авторизация)
   * [Полезные трейты](#полезные-трейты)
-    * [Первод Enum](#enumtranslatable)
-    * [Значения Enum](#enumvalues)
+    * [Enum (BaseEnumTrait)](#enum-baseenumtrait)
     * [Обновление полей enum в миграциях](#enumdbcheckalterable)
     * [Партиционирование таблиц](#partitionedbyhash)
     * [Логирование](#logger)
   * [Реквест и DTO](#реквест-и-dto)
   * [Модель](#модель)
   * [Репозиторий](#репозиторий)
+  * [Трансформация вычисляемых свойств](#трансформация-вычисляемых-свойств)
   * [Ресурс](#ресурс)
   * [Презентер](#презентер)
 
@@ -94,32 +94,53 @@ Route::prefix('external')
 
 ### Полезные трейты
 
-#### [EnumTranslatable](src%2FTraits%2FEnum%2FEnumTranslatable.php)
+#### [BaseEnumTrait](src%2FTraits%2FEnum%2FBaseEnumTrait.php)
 
-Трейт, который можно подключить в любой enum, он добавляет метод trans() в элемент перечисления.
-Чтобы заработал перевод надо добавить файл `/lang/<lang>/enums.php` с содержимым примерно такого вида:
+Трейт для PHP-enum: локализация и рендеринг. Подключается в перечисление:
+
+```php
+enum SystemStereotypeEnum: string
+{
+    use BaseEnumTrait;
+
+    case Typical = 'typical';
+    case Real = 'real';
+}
+```
+
+Чтобы заработал перевод, надо добавить в файл `/lang/<lang>/enums.php` ключи по классу enum. Поддерживаются оба формата — по значению кейса и по его имени:
 
 ```php
 return [
-    SystemStereotypeEnum::class => [
-        SystemStereotypeEnum::Typical->value => 'Типовая система',
-        SystemStereotypeEnum::Real->value => 'Реальная система',
+    'names' => [
+        SystemStereotypeEnum::class => [
+            SystemStereotypeEnum::Typical->value => 'Типовая система',
+            SystemStereotypeEnum::Real->value => 'Реальная система',
+            // либо по имени кейса
+            'Typical' => 'Типовая система',
+        ],
     ],
-]
+    'descriptions' => [
+        SystemStereotypeEnum::class => [
+            SystemStereotypeEnum::Typical->value => 'Описание типовой системы',
+        ],
+    ],
+];
 ```
 
-Получить перевод можно так:
+Методы трейта:
 
-```php
- SystemStereotypeEnum::Typical->trans($args);
-```
+| Метод | Описание |
+|---|---|
+| `list(array $args = [])` | все значения enum в виде `{id, name, description?}` |
+| `values()` | массив значений всех кейсов |
+| `trans(array $args = [])` | локализованное название |
+| `desc(array $args = [])` | локализованное описание |
+| `render(?string $renderIdAs = null)` | `{id, name, description?}`; `$renderIdAs` — `null`/`'string'`/`'int'` |
+| `fromTrans(string $translation)` / `tryFromTrans(?string $translation)` | поиск кейса по локализованному названию |
 
-Параметром `$args` можно передать массив аргументов для функции laravel trans().
-Этот метод используется в методе AbstractResource->getEnum()
-
-#### [EnumValues](src%2FTraits%2FEnum%2FEnumValues.php)
-
-Добавляет к перечислениям статический метод values(), который возвращает массив всех значений этого перечисления
+`getNamespace()` переопределяется для префикса namespace переводов (например, `'foundation::'`), а `getIdTypeForRender()` — для типа `id` по умолчанию в `render()`.
+Трейт также используется в `AbstractResource::getEnum()`, при сортировке по enum-полям и при поиске через `RepositoryBuilder::queries()`.
 
 #### [EnumDBCheckAlterable](src%2FTraits%2FMigration%2FEnumDBCheckAlterable.php)
 
@@ -154,7 +175,7 @@ $this->makePartitionedTable('materials', 100, function (Blueprint $table) {
 Реквест определяет правила валидации и (при необходимости) сообщения об ошибках, наследуется
 от [AbstractRequest](src%2FAbstracts%2FAbstractRequest.php).
 DTO определяет структуру данных для прозрачности передачи данных внутри приложения, наследуется
-от [AbstractDto](src%2FAbstracts%2FAbstractDto.php). Для стандартизации форматов запросов есть [GetListRequestDTO](src%2FDTO%2FGetListRequestDTO.php), в нем определены основные поля, используемые при получении списков с фильтрацией и пагинацией. 
+от [AbstractDto](src%2FAbstracts%2FAbstractDto.php). Для стандартизации форматов запросов есть [GetListRequestDTO](src%2FDTO%2FGetListRequestDTO.php), в нем определены основные поля, используемые при получении списков с фильтрацией и пагинацией (`page`, `perPage`, `sort`, `filters`, `queries`, `select`, `q`), а также `properties` — список запрошенных клиентом полей для `PropertyTransformer`. 
 
 Для подключения валидации надо добавить `\Laravel\Foundation\ServiceProviders\RequestServiceProvider::class` в конфиг `app.php`
 
@@ -306,6 +327,88 @@ UserRepository::query()
     ->paginate();
 ```
 
+Основные возможности `RepositoryBuilder`:
+
+- `filters(array $filters)` — фильтрация по полям и связям (операторы через `@`, JSON-поля, pivot-связи).
+- `query(string $q, array $queryableFields)` — глобальный поиск по списку столбцов.
+- `queries(array $queries)` — точечный поиск по конкретным полям. Ключ может содержать несколько полей через `|`, а также путь по связи через точку:
+
+```php
+UserRepository::query()
+    ->queries([
+        'code|login' => 'user',          // (code ILIKE %user%) OR (login ILIKE %user%)
+        'organization.name' => 'Росс',   // whereHas('organization', name ILIKE %Росс%)
+    ])
+    ->get();
+```
+
+Если поле модели имеет enum-каст на класс с `BaseEnumTrait`, поиск выполняется по локализованным названиям значений enum.
+
+- `orderBy(array $orderBy)` — сортировка, в том числе по связям (`organization.name`).
+- `limit()` / `offset()` / `paginate()` — постраничная выборка.
+- `sum($column)`, `count()`, `exists()`, `get()`, `find()` — получение результата.
+- `toQuery()` — внутренний `Laravel\Foundation\Cache\Builder` с применённой пагинацией и настройками кэша.
+- `getQueryBuilder()` — внутренний builder в текущем состоянии, без подготовки пагинации и кэша.
+
+Методы Eloquent Builder (`where`, `with`, `whereHas`, `select`, `join`, `addSelect` и т.д.) можно вызывать напрямую — они проксируются на внутренний builder.
+
+### Трансформация вычисляемых свойств
+
+`PropertyTransformer` ограничивает передаваемые клиенту данные: клиент сам указывает список `properties`, а трансформер вычисляет минимально необходимый `select`/`with` и досчитывает вычисляемые поля.
+
+Репозиторий сущности должен реализовать интерфейс `TransformsProperties`:
+
+```php
+use Laravel\Foundation\Abstracts\AbstractRepository;
+use Laravel\Foundation\Repository\TransformsProperties;
+
+class UserRepository extends AbstractRepository implements TransformsProperties
+{
+    public static function getPropertyConfig(): array
+    {
+        return [
+            // код вычисляемого поля
+            'full_name' => [
+                // связи, которые нужно загрузить (попадут в with)
+                'with' => ['profile'],
+                // дополнительные столбцы основной таблицы (попадут в select)
+                'select' => ['first_name', 'last_name'],
+                // расчёт значения: (модель, параметры setParameters) => значение
+                'source' => function (User $user, array $parameters) {
+                    return trim($user->first_name . ' ' . $user->last_name);
+                },
+            ],
+        ];
+    }
+}
+```
+
+Использование в сервисе:
+
+```php
+$transformer = new PropertyTransformer($params->properties ?? [], UserRepository::class);
+
+$paginator = UserRepository::query()
+    ->with($transformer->getWith())
+    ->select($transformer->getSelect())
+    ->paginate();
+
+return $transformer
+    ->setParameters([
+        // параметры, доступные внутри source-замыканий
+    ])
+    ->transform($paginator); // AbstractModel | Collection | LengthAwarePaginator
+```
+
+Что делает `PropertyTransformer`:
+
+1. Простые поля модели попадают в `select`, связи — в `with`. Для корневых `belongsTo`-связей в `select` автоматически добавляется внешний ключ.
+2. Поля из `getPropertyConfig()` регистрируются как вычисляемые, а их `select`/`with` добавляются в запрос.
+3. `setParameters()` задаёт контекст для `source`-замыканий.
+4. `transform()` рассчитывает вычисляемые поля и удаляет связи, загруженные только для расчёта, не трогая связи, запрошенные напрямую.
+
+Если репозиторий не наследует `AbstractRepository` или не реализует `TransformsProperties`, конструктор выбросит исключение.
+
 ### Ресурс
 
 Ресурсы делаются под каждую возвращаемую сущность (обычно это модели). Все ресурсы наследуются
@@ -338,9 +441,10 @@ class UserResource extends AbstractResource
 }
 ```
 
-Метод `$this->getEnum` рендерит enum в структуру вида `{code:<enum_code>,name:<название enum>}`. Для получения названия
-вызывается метод `trans` трейта [EnumTranslatable](src%2FTraits%2FEnumTranslatable.php).
-Если enum не расширен этим трейтом, то будет ошибка `NeedTranslatableEnumException`.
+Метод `$this->getEnum` рендерит enum в структуру вида `{id:<значение enum>,name:<название enum>}`. Для получения названия
+вызывается метод `trans` трейта [BaseEnumTrait](src%2FTraits%2FEnum%2FBaseEnumTrait.php).
+Если enum не расширен этим трейтом, то будет ошибка `NeedExtendedEnumException`.
+Метод также корректно работает с вычисляемыми полями, добавленными `PropertyTransformer`, и не выводит поля, отсутствующие в выборке.
 
 Метод `$this->getRelation` добавляет в выдачу связь eloquent модели. Первым параметром передается название связи,
 вторым - класс ресурса для элементов этой связи.

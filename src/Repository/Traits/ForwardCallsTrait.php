@@ -2,6 +2,7 @@
 
 namespace Laravel\Foundation\Repository\Traits;
 
+use Illuminate\Contracts\Database\Query\Expression;
 use Illuminate\Support\Collection;
 use Laravel\Foundation\Abstracts\AbstractModel;
 use Laravel\Foundation\Cache\Builder;
@@ -45,6 +46,11 @@ trait ForwardCallsTrait
         return $this->toQuery()->count();
     }
 
+    public function sum(Expression|string $column): mixed
+    {
+        return $this->toQuery()->sum($column);
+    }
+
     /**Возвращает объект \Laravel\Foundation\Cache\Builder с примененными правилами
      * @return Builder
      */
@@ -52,6 +58,14 @@ trait ForwardCallsTrait
     {
         $this->preparePagination();
         $this->prepareCache();
+        return $this->builder;
+    }
+
+    /**Возвращает объект \Laravel\Foundation\Cache\Builder с текущим состоянием запроса
+     * @return Builder
+     */
+    public function getQueryBuilder(): Builder
+    {
         return $this->builder;
     }
 

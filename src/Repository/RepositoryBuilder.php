@@ -22,7 +22,8 @@ use Laravel\Foundation\Repository\Traits\ForwardCallsTrait;
  * @method RepositoryBuilder where($column, $operator = null, $value = null, $boolean = 'and')
  * @method RepositoryBuilder when(mixed $condition, callable $closure)
  * @method RepositoryBuilder select(array $select)
- * @method RepositoryBuilder with(array $relations)
+ * @method RepositoryBuilder with($relations, $callback = null)
+ * @method RepositoryBuilder forceDelete()
  * @method RepositoryBuilder whereIn($column, $values, $boolean = 'and', $not = false)
  * @method RepositoryBuilder whereNotIn($column, $values, $boolean = 'and')
  * @method RepositoryBuilder whereExists(Closure $callback, $boolean = 'and', $not = false)
@@ -33,6 +34,7 @@ use Laravel\Foundation\Repository\Traits\ForwardCallsTrait;
  * @method RepositoryBuilder orWhereBetween($column, iterable $values)
  * @method RepositoryBuilder fromRaw($expression, $bindings = [])
  * @method RepositoryBuilder selectRaw($expression, array $bindings = [])
+ * @method RepositoryBuilder addSelect($column)
  * @method RepositoryBuilder join($table, $first, $operator = null, $second = null, $type = 'inner', $where = false)
  * @method Builder newQuery()
  * @method void dd()
@@ -98,14 +100,19 @@ class RepositoryBuilder
      */
     public function fromGetListDto(GetListRequestDTO $dto, array $queryableFields = []): static
     {
-        return $this
+        $builder = $this
             ->select($dto->select)
             ->limit($dto->perPage)
             ->offset($dto->page)
             ->filters($this->repository->getSupportingFilters($dto->filters))
             ->queries($dto->queries)
-            ->orderBy($dto->sort)
-            ->query($dto->q, $queryableFields);
+            ->orderBy($dto->sort);
+
+        if (!empty($dto->q)) {
+            $builder->query($dto->q, $queryableFields);
+        }
+
+        return $builder;
     }
 
 }

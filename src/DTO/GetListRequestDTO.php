@@ -14,4 +14,5 @@ class GetListRequestDTO extends AbstractDto
     public array $select = ['*'];
 
     public string $q = '';
+    public ?array $properties = null;
 }

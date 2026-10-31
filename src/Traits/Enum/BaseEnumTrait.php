@@ -33,25 +33,36 @@ trait BaseEnumTrait
     }
 
     /**
-     * @param string|int|null $code Если null, то возвращает id всего блока для этого Enum
+     * @param UnitEnum|string|int|null $code Если null, то возвращает id всего блока для этого Enum
      * @param bool $throwIfNotExists
      * @return string|null
+     * @throws EnumTransNotFoundException
      */
-    private static function getTransNameId(null|int|string $code, bool $throwIfNotExists = true): ?string
+    private static function getTransNameId(null|int|string|UnitEnum $code, bool $throwIfNotExists = true): ?string
     {
+        $value = $code instanceof UnitEnum ? $code->value : $code;
+        $name = $code instanceof UnitEnum ? $code->name : null;
+
         //для обратной совместимости поддерживаются оба формата lang файла
-        $key1 = self::getNamespace() . 'enums.names.' . static::class . (is_null($code) ? '' : ('.' . $code));
-        $key2 = self::getNamespace() . 'enums.' . static::class . (is_null($code) ? '' : ('.' . $code));
-        if (trans()->has($key1)) {
-            return $key1;
+        $keys = [
+            self::getNamespace() . 'enums.names.' . static::class . (is_null($value) ? '' : ('.' . $value)),
+            self::getNamespace() . 'enums.' . static::class . (is_null($value) ? '' : ('.' . $value)),
+        ];
+
+        //если есть возможность, ищем перевод также по имени кейса enum
+        if (!is_null($name)) {
+            $keys[] = self::getNamespace() . 'enums.names.' . static::class . '.' . $name;
+            $keys[] = self::getNamespace() . 'enums.' . static::class . '.' . $name;
         }
 
-        if (trans()->has($key2)) {
-            return $key2;
+        foreach ($keys as $key) {
+            if (trans()->has($key)) {
+                return $key;
+            }
         }
 
         if ($throwIfNotExists) {
-            throw new EnumTransNotFoundException('Для класса ' . static::class . " не найден перевод названия $key1 или $key2");
+            throw new EnumTransNotFoundException('Для класса ' . static::class . " не найден перевод названия по ключам: " . implode(', ', $keys));
         } else {
             return null;
         }
@@ -78,7 +89,7 @@ trait BaseEnumTrait
      */
     public function trans(array $args = []): string
     {
-        return trans(self::getTransNameId($this->value), $args);
+        return trans(self::getTransNameId($this), $args);
     }
 
     /**Получить описание enum из lang.enums.descriptions.[class_name]
@@ -102,6 +113,10 @@ trait BaseEnumTrait
      */
     public function render(?string $renderIdAs = null): array
     {
+        if (is_null($renderIdAs)) {
+            $renderIdAs = self::getIdTypeForRender();
+        }
+
         $id = match ($renderIdAs) {
             null => $this->value,
             'string' => (string)$this->value,
@@ -138,7 +153,7 @@ trait BaseEnumTrait
     {
         foreach (trans(self::getTransNameId(null, false)) as $key => $trans) {
             if (Str::lower($trans) === Str::lower($translation)) {
-                return static::from($key);
+                return static::tryFrom($key) ?? static::{$key} ?? null;
             }
         }
 
@@ -153,5 +168,12 @@ trait BaseEnumTrait
         return '';
     }
 
-}
+    /**Тип ID для функции render по умолчанию
+     * @return ?string
+     */
+    protected static function getIdTypeForRender(): ?string
+    {
+        return null;
+    }
 
+}

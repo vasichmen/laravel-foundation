@@ -4,7 +4,7 @@ namespace Laravel\Foundation\Repository\Traits;
 
 use Illuminate\Support\Str;
 use Laravel\Foundation\Cache\Builder;
-use Laravel\Foundation\Traits\BaseEnumTrait;
+use Laravel\Foundation\Traits\Enum\BaseEnumTrait;
 
 trait BuildsQueriesTrait
 {

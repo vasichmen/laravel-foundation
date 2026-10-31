@@ -54,12 +54,13 @@ abstract class AbstractResource extends JsonResource
     protected function getEnum(string $key, ?string $renderIdAs = null): array
     {
         if ($this->resource instanceof AbstractDto) {
-            return [$key => $this->resource->{$key}->render()];
+            return [$key => $this->resource->{$key}->render($renderIdAs)];
         }
 
-        if (!in_array($key, $this->resource->getFillable())) {
+        if (!array_key_exists($key, $this->resource->getAttributes())) {
             return [];
         }
+
         return $this->renderEnum($key, $this->{$key}, $renderIdAs);
     }
 
@@ -106,19 +107,31 @@ abstract class AbstractResource extends JsonResource
      */
     protected function getEnumArray(string $field, string $enumClass, ?string $renderIdAs = null): array
     {
-        if ($this->resource instanceof AbstractModel) {
-            if (!in_array($field, $this->resource->getFillable())) {
-                return [];
-            }
+        switch (true) {
+            case $this->resource instanceof AbstractModel:
+                $attrs = $this->resource->getAttributes();
+                if (!array_key_exists($field, $attrs)) {
+                    return [];
+                }
+                $value = $this->resource->{$field};
+                break;
+            case is_object($this->resource):
+                $value = $this->resource->{$field};
+                break;
+            case is_array($this->resource):
+                $value = $this->resource[$field];
+                break;
+            default:
+                throw new \Exception('Неподдерживаемый тип ресурса');
         }
 
-        $value = $this->{$field};
         if (empty($value)) {
             return [$field => $value];
         }
         $result = [];
         foreach ($value as $id) {
-            $result[] = $this->renderEnum($enumClass::from($id), $renderIdAs);
+            $enum = is_string($id) || is_int($id) ? $enumClass::from($id) : $id;
+            $result[] = $this->renderEnum($enum, $renderIdAs);
         }
 
         return [$field => $result];
