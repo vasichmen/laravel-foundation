@@ -5,8 +5,7 @@
   "require": {
     "php": "^8.4",
     "ext-json": "*",
-    "laravel/framework": "^9.32|^10.0|^11.0|^12.0",
-    "guzzlehttp/guzzle": ">=7.0"
+    "laravel/framework": "^9.32|^10.0|^11.0|^12.0|^13.0"
   },
   "authors": [
     {
